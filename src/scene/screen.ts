@@ -19,7 +19,7 @@ const IOS = {
   label: '#000000',
   secondary: 'rgba(60,60,67,0.6)',
   tertiary: 'rgba(60,60,67,0.3)',
-  separator: 'rgba(60,60,67,0.29)',
+  separator: 'rgba(60,60,67,0.2)',
   fill: 'rgba(120,120,128,0.2)',
   track: '#e5e5ea',
   green: 'rgb(52,199,89)',
@@ -415,8 +415,11 @@ function section(
     top += 26;
   }
   rect(ctx, MARGIN, top, LIST_WIDTH, rows * rowHeight, CELL_RADIUS, IOS.cell);
+  // Separators snapped to whole pixels, so every one is the same thickness.
+  ctx.fillStyle = IOS.separator;
   for (let i = 1; i < rows; i += 1) {
-    rect(ctx, 60, top + i * rowHeight, LIST_WIDTH - 44, 0.6, 0, IOS.separator);
+    const yPx = Math.round((top + i * rowHeight) * PT);
+    ctx.fillRect(Math.round(60 * PT), yPx - 1, Math.round((LIST_WIDTH - 44) * PT), 2);
   }
   return top;
 }
@@ -434,25 +437,39 @@ function finish(ctx: CanvasRenderingContext2D, tab: Tab): void {
 
 // ---- Screens ----------------------------------------------------------------------------------
 
-/** flashlight.off.fill: a torch with a wider head and a small switch. */
+/** A clear Liquid Glass circle over the wallpaper: translucent, lit from the top, with a bright rim. */
+function glassButton(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  const body = ctx.createLinearGradient(0, (y - r) * PT, 0, (y + r) * PT);
+  body.addColorStop(0, 'rgba(255,255,255,0.26)');
+  body.addColorStop(1, 'rgba(255,255,255,0.12)');
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(x * PT, y * PT, r * PT, 0, Math.PI * 2);
+  ctx.fill();
+  const rim = ctx.createLinearGradient(0, (y - r) * PT, 0, (y + r) * PT);
+  rim.addColorStop(0, 'rgba(255,255,255,0.6)');
+  rim.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+  rim.addColorStop(1, 'rgba(255,255,255,0.35)');
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 1 * PT;
+  ctx.beginPath();
+  ctx.arc(x * PT, y * PT, (r - 0.5) * PT, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/** flashlight.off.fill: a head, a tapered neck, a body and a round switch. */
 function flashlight(ctx: CanvasRenderingContext2D, x: number, y: number, c: string): void {
+  rect(ctx, x - 6.2, y - 13.5, 12.4, 4.2, 1.6, c);
   ctx.fillStyle = c;
   ctx.beginPath();
-  // Head (top), tapering into the body.
-  ctx.moveTo((x - 6) * PT, (y - 12) * PT);
-  ctx.lineTo((x + 6) * PT, (y - 12) * PT);
-  ctx.lineTo((x + 6) * PT, (y - 8.5) * PT);
-  ctx.lineTo((x + 3.6) * PT, (y - 4.5) * PT);
-  ctx.lineTo((x + 3.6) * PT, (y + 11) * PT);
-  ctx.quadraticCurveTo((x + 3.6) * PT, (y + 13) * PT, (x + 1.6) * PT, (y + 13) * PT);
-  ctx.lineTo((x - 1.6) * PT, (y + 13) * PT);
-  ctx.quadraticCurveTo((x - 3.6) * PT, (y + 13) * PT, (x - 3.6) * PT, (y + 11) * PT);
-  ctx.lineTo((x - 3.6) * PT, (y - 4.5) * PT);
-  ctx.lineTo((x - 6) * PT, (y - 8.5) * PT);
+  ctx.moveTo((x - 6.2) * PT, (y - 9.8) * PT);
+  ctx.lineTo((x + 6.2) * PT, (y - 9.8) * PT);
+  ctx.lineTo((x + 4.2) * PT, (y - 4.6) * PT);
+  ctx.lineTo((x - 4.2) * PT, (y - 4.6) * PT);
   ctx.closePath();
   ctx.fill();
-  rect(ctx, x - 6, y - 13.5, 12, 2.2, 1, c);
-  circle(ctx, x, y + 2, 1.5, 'rgba(0,0,0,0.55)');
+  rect(ctx, x - 4.2, y - 5.2, 8.4, 18.4, 2.4, c);
+  circle(ctx, x, y + 1.6, 1.8, 'rgba(60,30,36,0.9)');
 }
 
 /** camera.fill: rounded body, viewfinder bump, lens ring and a small flash dot. */
@@ -487,49 +504,38 @@ function wallpaper(ctx: CanvasRenderingContext2D): void {
 /** Always-On lock screen: the phone is still in parts, so the display only glows faintly. */
 const lockScreen: Painter = (ctx) => {
   wallpaper(ctx);
-  statusBar(ctx, 'rgba(255,255,255,0.92)', { time: false, wifi: false });
-  text(ctx, today(), 201, 112, 19, 600, 'rgba(255,255,255,0.8)', { align: 'center' });
-  // The iOS 26+ lock-screen clock: tall, narrow and translucent, tinted by the wallpaper.
+  statusBar(ctx, 'rgba(255,255,255,0.95)', { time: false });
+  text(ctx, today(), 201, 118, 20, 600, 'rgba(255,255,255,0.88)', { align: 'center' });
+
+  // The iOS 26+ lock-screen clock: very tall, nearly the full width of the screen, filled like
+  // frosted glass so the wallpaper tints it.
+  const time = clock();
   ctx.save();
-  ctx.translate(201 * PT, 360 * PT);
-  ctx.scale(0.74, 2.35);
-  ctx.font = `500 ${118 * PT}px ${SANS}`;
+  ctx.font = `500 ${100 * PT}px ${SANS}`;
+  const metrics = ctx.measureText(time);
+  const glyphHeight = metrics.actualBoundingBoxAscent || 72 * PT;
+  const scaleX = (352 * PT) / metrics.width;
+  const scaleY = (228 * PT) / glyphHeight;
+  ctx.translate(201 * PT, 372 * PT);
+  ctx.scale(scaleX, scaleY);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = 'rgba(255,226,233,0.5)';
-  ctx.fillText(clock(), 0, 0);
-  ctx.lineWidth = 0.9 * PT;
-  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-  ctx.strokeText(clock(), 0, 0);
+  const fill = ctx.createLinearGradient(0, -glyphHeight, 0, 0);
+  fill.addColorStop(0, 'rgba(255,255,255,0.9)');
+  fill.addColorStop(0.55, 'rgba(255,238,242,0.72)');
+  fill.addColorStop(1, 'rgba(255,224,232,0.6)');
+  ctx.fillStyle = fill;
+  ctx.fillText(time, 0, 0);
+  ctx.lineWidth = (1 * PT) / scaleX;
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.strokeText(time, 0, 0);
   ctx.restore();
 
-  // Notification on clear Liquid Glass: app icon, app name, time, title and body.
-  rect(ctx, 12, 668, 378, 86, 26, 'rgba(255,255,255,0.16)');
-  const icon = ctx.createLinearGradient(0, 692 * PT, 0, 730 * PT);
-  icon.addColorStop(0, '#3a3a3c');
-  icon.addColorStop(1, '#1c1c1e');
-  ctx.fillStyle = icon;
-  ctx.beginPath();
-  ctx.roundRect(26 * PT, 692 * PT, 38 * PT, 38 * PT, 9 * PT);
-  ctx.fill();
-  line(ctx, IOS.green, 2.6, [
-    [36, 705],
-    [42, 711],
-    [36, 717],
-  ]);
-  line(ctx, IOS.green, 2.6, [
-    [45, 718],
-    [53, 718],
-  ]);
-  text(ctx, COPY.hero.title, 76, 707, 15, 600, 'rgba(255,255,255,0.9)', { maxWidth: 240 });
-  text(ctx, 'now', 374, 707, 13, 400, 'rgba(255,255,255,0.55)', { align: 'right' });
-  text(ctx, COPY.hero.body, 76, 727, 15, 400, 'rgba(255,255,255,0.78)', { maxWidth: 290 });
-
-  // Flashlight and camera quick actions.
-  for (const x of [72, 330]) circle(ctx, x, 790, 25, 'rgba(0,0,0,0.28)');
+  // Flashlight and camera: round Liquid Glass buttons.
+  for (const x of [72, 330]) glassButton(ctx, x, 790, 25);
   flashlight(ctx, 72, 790, '#ffffff');
   camera(ctx, 330, 790, '#ffffff');
-  homeIndicator(ctx, 'rgba(255,255,255,0.5)');
+  homeIndicator(ctx, 'rgba(255,255,255,0.92)');
 };
 
 /** Boot sequence between "assembled" and the first app screen: the Apple-style progress. */

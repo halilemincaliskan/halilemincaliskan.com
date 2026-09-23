@@ -17,12 +17,14 @@ import {
   RingGeometry,
   SRGBColorSpace,
   Shape,
+  ShapeGeometry,
   Texture,
   Vector2,
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import {
   arc,
   offsetOutline,
@@ -55,31 +57,6 @@ export const DISPLAY = {
 // cluster sits on the left when seen from the back, so x is positive here).
 const PLATEAU_HEIGHT = 4.3;
 const PLATEAU = { x: BODY.width / 2 - 0.3 - 1.9, y: BODY.height / 2 - 0.3 - 1.9, size: 3.8 };
-
-/**
- * The part of an outline above y = bottom, closed with a straight edge: the plateau's shape, rounded
- * where the body is rounded and cut straight across where it drops to the back glass.
- */
-function topCap(outline: OutlinePoint[], bottom: number): OutlinePoint[] {
-  const count = outline.length;
-  const start = outline.findIndex(
-    (p, i) => p.y >= bottom && outline[(i - 1 + count) % count].y < bottom,
-  );
-  const arc: Array<[number, number]> = [];
-  for (let k = 0; k < count; k += 1) {
-    const p = outline[(start + k) % count];
-    if (p.y < bottom) break;
-    arc.push([p.x, p.y]);
-  }
-  const hw = BODY.width / 2;
-  const raw: Array<[number, number]> = [[hw, bottom], ...arc, [-hw, bottom]];
-  return raw.map(([x, y], i) => {
-    const [px, py] = raw[(i - 1 + raw.length) % raw.length];
-    const [nx, ny] = raw[(i + 1) % raw.length];
-    const length = Math.hypot(nx - px, ny - py) || 1;
-    return { x, y, nx: (ny - py) / length, ny: -(nx - px) / length };
-  });
-}
 
 export type LayerId = 'back' | 'frame' | 'internals' | 'display';
 
@@ -209,8 +186,8 @@ export class PhoneModel {
     // ---- Back glass, camera plateau and MagSafe --------------------------------------------
     const back = new Group();
     back.name = 'back-glass';
-    // iPhone 18 Pro back: an aluminium unibody. The camera plateau is the body itself, flush with
-    // the top and both sides; below it a glass panel sits inset like a card, with aluminium around it.
+    // iPhone 18 Pro back: an aluminium unibody with two dark islands on it, inset from the edges: the
+    // raised camera plateau at the top and the glass panel below it, both the same deep colour.
     const plateauMetal = titanium.clone();
     plateauMetal.color = new Color('#5e3a43');
     plateauMetal.roughness = 0.58;
@@ -222,19 +199,33 @@ export class PhoneModel {
     backPanel.position.z = -HALF_DEPTH + 0.018;
     back.add(backPanel);
 
-    const plateauBottom = BODY.height / 2 - PLATEAU_HEIGHT;
-    // A hair inside the body outline so its sides don't z-fight with the frame.
-    const plateauOutline = offsetOutline(topCap(this.outline, plateauBottom), -0.008);
-    const plateau = new Mesh(slab(plateauOutline, 0.13, 0.05), plateauMetal);
-    plateau.position.z = -HALF_DEPTH - 0.02;
+    const islandInset = 0.3;
+    const islandMetal = frostedGlass.clone();
+    islandMetal.metalness = 0.35;
+    islandMetal.roughness = 0.45;
+    const plateauHeight = PLATEAU_HEIGHT - islandInset;
+    const plateau = new Mesh(
+      slab(
+        squircle(BODY.width - 2 * islandInset, plateauHeight, BODY.radius - islandInset, corner),
+        0.13,
+        0.05,
+      ),
+      islandMetal,
+    );
+    plateau.position.set(0, BODY.height / 2 - islandInset - plateauHeight / 2, -HALF_DEPTH - 0.02);
     back.add(plateau);
 
-    const cardInset = 0.3;
-    const cardTop = plateauBottom - 0.14;
-    const cardBottom = -BODY.height / 2 + cardInset;
+    const plateauBottom = BODY.height / 2 - PLATEAU_HEIGHT;
+    const cardTop = plateauBottom - 0.16;
+    const cardBottom = -BODY.height / 2 + islandInset;
     const card = new Mesh(
       slab(
-        squircle(BODY.width - 2 * cardInset, cardTop - cardBottom, BODY.radius - cardInset, corner),
+        squircle(
+          BODY.width - 2 * islandInset,
+          cardTop - cardBottom,
+          BODY.radius - islandInset,
+          corner,
+        ),
         0.05,
         0.02,
       ),
@@ -242,6 +233,12 @@ export class PhoneModel {
     );
     card.position.set(0, (cardTop + cardBottom) / 2, -HALF_DEPTH - 0.004);
     back.add(card);
+
+    // Apple logo, polished, in the middle of the glass.
+    const logo = this.appleLogo(1.3);
+    logo.position.set(0, -0.95, -HALF_DEPTH - 0.032);
+    logo.rotation.y = Math.PI;
+    back.add(logo);
 
     const lensTexture = this.lensTexture();
     const lensGlass = new MeshPhysicalMaterial({
@@ -285,7 +282,7 @@ export class PhoneModel {
       back.add(lens);
     }
     const flash = new Mesh(
-      new CircleGeometry(0.2, round),
+      new CircleGeometry(0.28, round),
       new MeshPhysicalMaterial({
         color: '#f4efe2',
         roughness: 0.35,
@@ -299,7 +296,7 @@ export class PhoneModel {
     flash.position.set(farSide, PLATEAU.y + 1.27, plateauBack - 0.002);
     back.add(flash);
     const lidar = new Mesh(
-      new CircleGeometry(0.19, round),
+      new CircleGeometry(0.26, round),
       new MeshPhysicalMaterial({ color: '#0d0e10', roughness: 0.12, clearcoat: 1 }),
     );
     lidar.rotation.y = Math.PI;
@@ -652,6 +649,33 @@ export class PhoneModel {
     });
     this.textures.push(texture);
     return texture;
+  }
+
+  /** The Apple logo as a flat polished inlay, `width` units across, centred on the origin. */
+  private appleLogo(width: number): Mesh {
+    // Apple logo outline (Simple Icons, CC0), 24 x 24 view box.
+    const d =
+      'M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701';
+    const svg = new SVGLoader().parse(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${d}"/></svg>`,
+    );
+    const shapes = svg.paths.flatMap((path) => path.toShapes());
+    const geometry = new ShapeGeometry(shapes, 12);
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox!;
+    const scale = width / (box.max.x - box.min.x);
+    geometry.translate(-(box.min.x + box.max.x) / 2, -(box.min.y + box.max.y) / 2, 0);
+    // SVG y runs down; flip it so the logo stands upright.
+    geometry.scale(scale, -scale, 1);
+    const material = new MeshPhysicalMaterial({
+      color: '#7a4450',
+      metalness: 0.6,
+      roughness: 0.22,
+      clearcoat: 1,
+      envMapIntensity: 0.5,
+      side: DoubleSide,
+    });
+    return new Mesh(geometry, material);
   }
 
   private labelTexture(text: string): CanvasTexture {
