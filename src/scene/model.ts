@@ -33,11 +33,15 @@ import {
   type OutlinePoint,
 } from './geometry';
 
-// iPhone 16 Pro, 1 unit = 10 mm: 71.5 x 149.6 x 8.25 mm.
-export const BODY = { width: 7.15, height: 14.96, depth: 0.825, radius: 1.32 } as const;
+// iPhone 18 Pro, 1 unit = 10 mm. Front proportions are measured from Apple's official iPhone 18 Pro
+// bezel (Apple Design Resources, 2026-09): body 1301 x 2716 px around a 1206 x 2622 px (402 x 874 pt)
+// screen, a 24 px titanium band and a 23 px black border, body corner radius 236 px. The width keeps
+// the 71.5 mm of the Pro line; depth is unchanged.
+const PX = 7.15 / 1301;
+export const BODY = { width: 7.15, height: 2716 * PX, depth: 0.825, radius: 236 * PX } as const;
 const HALF_DEPTH = BODY.depth / 2;
-const GLASS_INSET = 0.075;
-const BEZEL = 0.135;
+const GLASS_INSET = 24 * PX;
+const BEZEL = 23.5 * PX;
 export const DISPLAY = {
   width: BODY.width - 2 * (GLASS_INSET + BEZEL),
   height: BODY.height - 2 * (GLASS_INSET + BEZEL),

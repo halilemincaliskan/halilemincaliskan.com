@@ -6,7 +6,7 @@ import { DISPLAY } from './model';
 const COPY = build.screen;
 const WIDTH = 720;
 const HEIGHT = Math.round((WIDTH * DISPLAY.height) / DISPLAY.width);
-/** iPhone 16 Pro is 402 × 874 pt; everything below is laid out in points. */
+/** iPhone 18 Pro is 402 × 874 pt; everything below is laid out in points. */
 const PT = WIDTH / 402;
 
 /**
@@ -30,6 +30,9 @@ const IOS = {
 
 /** SF Pro on Apple devices; Geist everywhere else (Apple's fonts can't be served on the web). */
 const SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist Variable", sans-serif';
+
+/** Dynamic Island on iPhone 18 Pro, in points. */
+const ISLAND = { x: (402 - 94) / 2, y: 14, w: 94, h: 36 };
 
 /** Standard layout metrics. */
 const MARGIN = 16;
@@ -306,14 +309,15 @@ function ellipsis(ctx: CanvasRenderingContext2D, x: number, y: number, c: string
  * and battery are centred as one group in the space to its right.
  */
 function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
-  text(ctx, clock(), 76, 37, 17, 600, color, { align: 'center' });
+  text(ctx, clock(), ISLAND.x / 2 + 2, 38, 17, 600, color, { align: 'center' });
   // Cellular: four bars of rising height.
-  const x0 = 302;
+  // Right ear is centred on x = 325.
+  const x0 = 290;
   [4.5, 6.8, 9.1, 11.4].forEach((h, i) => {
     rect(ctx, x0 + i * 4.6, 36.4 - h, 3.2, h, 0.9, color);
   });
   // Wi-Fi: filled fan of three bands.
-  const cx = 331.5;
+  const cx = 319.5;
   const cy = 36.4;
   ctx.fillStyle = color;
   for (const [outer, inner] of [
@@ -332,10 +336,10 @@ function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
   ctx.closePath();
   ctx.fill();
   // Battery: a solid capsule (full charge) with a faint cap.
-  rect(ctx, 346, 26.2, 25.5, 12, 4, color);
+  rect(ctx, 334, 26.2, 25.5, 12, 4, color);
   const base = ctx.globalAlpha;
   ctx.globalAlpha = base * 0.4;
-  rect(ctx, 372.6, 30, 1.8, 4.4, 1, color);
+  rect(ctx, 360.6, 30, 1.8, 4.4, 1, color);
   ctx.globalAlpha = base;
 }
 
@@ -790,11 +794,14 @@ export class PhoneScreen {
       ctx.globalAlpha = 1;
     }
     ctx.restore();
-    // The Dynamic Island is hardware, so it is painted over every screen.
+    // The Dynamic Island is hardware, so it is painted over every screen. iPhone 18 Pro: 94 x 36 pt,
+    // 14 pt from the top (measured from Apple's bezel), with the front camera at its right end.
     ctx.fillStyle = '#000000';
     ctx.beginPath();
-    ctx.roundRect(138 * PT, 11 * PT, 126 * PT, 37 * PT, 18.5 * PT);
+    ctx.roundRect(ISLAND.x * PT, ISLAND.y * PT, ISLAND.w * PT, ISLAND.h * PT, (ISLAND.h / 2) * PT);
     ctx.fill();
+    circle(ctx, ISLAND.x + ISLAND.w - 18, ISLAND.y + ISLAND.h / 2, 5.2, '#0d1020');
+    circle(ctx, ISLAND.x + ISLAND.w - 18, ISLAND.y + ISLAND.h / 2, 2.4, '#1b2440');
     this.texture.needsUpdate = true;
     return true;
   }
