@@ -10,6 +10,8 @@ interface Props {
 
 const { title = `${profile.name} · ${profile.role}` } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+// The summary uses **bold** markers for the page; meta tags need plain text.
+const description = profile.summary.replaceAll('**', '');
 ---
 
 <!doctype html>
@@ -20,10 +22,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     <title>{title}</title>
-    <meta name="description" content={profile.summary} />
+    <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <meta property="og:title" content={title} />
-    <meta property="og:description" content={profile.summary} />
+    <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary" />
