@@ -301,33 +301,42 @@ function ellipsis(ctx: CanvasRenderingContext2D, x: number, y: number, c: string
 
 // ---- System chrome ---------------------------------------------------------------------------
 
+/**
+ * iOS status bar: the time is centred in the space left of the Dynamic Island, and signal, Wi-Fi
+ * and battery are centred as one group in the space to its right.
+ */
 function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
-  text(ctx, clock(), 52, 36, 17, 600, color, { align: 'center' });
-  ctx.fillStyle = color;
-  [4, 6.5, 9, 11.5].forEach((h, i) => {
-    ctx.beginPath();
-    ctx.roundRect((300 + i * 5) * PT, (36 - h) * PT, 3.2 * PT, h * PT, 1 * PT);
-    ctx.fill();
+  text(ctx, clock(), 76, 37, 17, 600, color, { align: 'center' });
+  // Cellular: four bars of rising height.
+  const x0 = 302;
+  [4.5, 6.8, 9.1, 11.4].forEach((h, i) => {
+    rect(ctx, x0 + i * 4.6, 36.4 - h, 3.2, h, 0.9, color);
   });
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.9 * PT;
-  ctx.lineCap = 'round';
-  for (const r of [9.5, 5.5]) {
+  // Wi-Fi: filled fan of three bands.
+  const cx = 331.5;
+  const cy = 36.4;
+  ctx.fillStyle = color;
+  for (const [outer, inner] of [
+    [11, 7.9],
+    [6.9, 3.9],
+  ] as const) {
     ctx.beginPath();
-    ctx.arc(331 * PT, 36.5 * PT, r * PT, Math.PI * 1.25, Math.PI * 1.75);
-    ctx.stroke();
+    ctx.arc(cx * PT, cy * PT, outer * PT, Math.PI * 1.25, Math.PI * 1.75);
+    ctx.arc(cx * PT, cy * PT, inner * PT, Math.PI * 1.75, Math.PI * 1.25, true);
+    ctx.closePath();
+    ctx.fill();
   }
-  circle(ctx, 331, 35.2, 1.4, color);
-  ctx.globalAlpha *= 0.4;
-  ctx.lineWidth = 1 * PT;
   ctx.beginPath();
-  ctx.roundRect(345 * PT, 26.5 * PT, 25 * PT, 12 * PT, 3.8 * PT);
-  ctx.stroke();
-  ctx.globalAlpha /= 0.4;
-  rect(ctx, 347, 28.5, 21, 8, 2.2, color);
-  ctx.globalAlpha *= 0.4;
-  rect(ctx, 371.5, 30.5, 1.6, 4, 0.8, color);
-  ctx.globalAlpha /= 0.4;
+  ctx.moveTo(cx * PT, cy * PT);
+  ctx.arc(cx * PT, cy * PT, 2.9 * PT, Math.PI * 1.25, Math.PI * 1.75);
+  ctx.closePath();
+  ctx.fill();
+  // Battery: a solid capsule (full charge) with a faint cap.
+  rect(ctx, 346, 26.2, 25.5, 12, 4, color);
+  const base = ctx.globalAlpha;
+  ctx.globalAlpha = base * 0.4;
+  rect(ctx, 372.6, 30, 1.8, 4.4, 1, color);
+  ctx.globalAlpha = base;
 }
 
 function homeIndicator(ctx: CanvasRenderingContext2D, color: string): void {
@@ -406,40 +415,53 @@ function finish(ctx: CanvasRenderingContext2D, tab: Tab): void {
 
 // ---- Screens ----------------------------------------------------------------------------------
 
-/**
- * An abstract, iOS-style wallpaper drawn in code (Apple's own wallpapers are copyrighted, so they
- * can't ship on this site): deep blue at the top flowing into warm light at the bottom.
- */
+/** flashlight.off.fill: a torch with a wider head and a small switch. */
+function flashlight(ctx: CanvasRenderingContext2D, x: number, y: number, c: string): void {
+  ctx.fillStyle = c;
+  ctx.beginPath();
+  // Head (top), tapering into the body.
+  ctx.moveTo((x - 6) * PT, (y - 12) * PT);
+  ctx.lineTo((x + 6) * PT, (y - 12) * PT);
+  ctx.lineTo((x + 6) * PT, (y - 8.5) * PT);
+  ctx.lineTo((x + 3.6) * PT, (y - 4.5) * PT);
+  ctx.lineTo((x + 3.6) * PT, (y + 11) * PT);
+  ctx.quadraticCurveTo((x + 3.6) * PT, (y + 13) * PT, (x + 1.6) * PT, (y + 13) * PT);
+  ctx.lineTo((x - 1.6) * PT, (y + 13) * PT);
+  ctx.quadraticCurveTo((x - 3.6) * PT, (y + 13) * PT, (x - 3.6) * PT, (y + 11) * PT);
+  ctx.lineTo((x - 3.6) * PT, (y - 4.5) * PT);
+  ctx.lineTo((x - 6) * PT, (y - 8.5) * PT);
+  ctx.closePath();
+  ctx.fill();
+  rect(ctx, x - 6, y - 13.5, 12, 2.2, 1, c);
+  circle(ctx, x, y + 2, 1.5, 'rgba(0,0,0,0.55)');
+}
+
+/** camera.fill: rounded body, viewfinder bump, lens ring and a small flash dot. */
+function camera(ctx: CanvasRenderingContext2D, x: number, y: number, c: string): void {
+  rect(ctx, x - 5, y - 10, 10, 4, 1.5, c);
+  rect(ctx, x - 12, y - 7.5, 24, 17, 4.5, c);
+  circle(ctx, x, y + 1, 5.6, 'rgba(0,0,0,0.55)');
+  circle(ctx, x, y + 1, 3.8, c);
+  circle(ctx, x + 8, y - 3.5, 1.1, 'rgba(0,0,0,0.55)');
+}
+
+/** Lock-screen wallpaper chosen by Halil; drawn once it has loaded. */
+const WALLPAPER = new Image();
+WALLPAPER.decoding = 'async';
+WALLPAPER.src = '/wallpaper.webp';
+
 function wallpaper(ctx: CanvasRenderingContext2D): void {
-  const base = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  base.addColorStop(0, '#0a1330');
-  base.addColorStop(0.45, '#1c1f5c');
-  base.addColorStop(0.75, '#5a2a6e');
-  base.addColorStop(1, '#c4563a');
-  ctx.fillStyle = base;
+  ctx.fillStyle = '#3b2227';
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  const blobs: Array<[number, number, number, string]> = [
-    [0.15, 0.62, 0.75, 'rgba(255,141,40,0.55)'],
-    [0.9, 0.78, 0.6, 'rgba(255,45,85,0.45)'],
-    [0.85, 0.22, 0.7, 'rgba(0,136,255,0.45)'],
-    [0.2, 0.08, 0.55, 'rgba(97,85,245,0.5)'],
-  ];
-  for (const [x, y, r, color] of blobs) {
-    const glow = ctx.createRadialGradient(
-      WIDTH * x,
-      HEIGHT * y,
-      0,
-      WIDTH * x,
-      HEIGHT * y,
-      WIDTH * r,
-    );
-    glow.addColorStop(0, color);
-    glow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  if (WALLPAPER.complete && WALLPAPER.naturalWidth > 0) {
+    // Cover the display, keeping the image's aspect ratio.
+    const scale = Math.max(WIDTH / WALLPAPER.naturalWidth, HEIGHT / WALLPAPER.naturalHeight);
+    const w = WALLPAPER.naturalWidth * scale;
+    const h = WALLPAPER.naturalHeight * scale;
+    ctx.drawImage(WALLPAPER, (WIDTH - w) / 2, (HEIGHT - h) / 2, w, h);
   }
-  // Always-On dims the wallpaper; the phone is still in parts.
-  ctx.fillStyle = 'rgba(0,0,0,0.38)';
+  // Always-On dims the wallpaper slightly; the phone is still in parts.
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 }
 
@@ -475,10 +497,9 @@ const lockScreen: Painter = (ctx) => {
   text(ctx, COPY.hero.body, 76, 727, 15, 400, 'rgba(255,255,255,0.78)', { maxWidth: 290 });
 
   // Flashlight and camera quick actions.
-  for (const x of [72, 330]) circle(ctx, x, 790, 25, 'rgba(255,255,255,0.14)');
-  rect(ctx, 68.5, 781, 7, 18, 2.5, 'rgba(255,255,255,0.72)');
-  rect(ctx, 320, 783, 20, 14, 3.5, 'rgba(255,255,255,0.72)');
-  circle(ctx, 330, 790, 3.6, 'rgba(0,0,0,0.6)');
+  for (const x of [72, 330]) circle(ctx, x, 790, 25, 'rgba(0,0,0,0.28)');
+  flashlight(ctx, 72, 790, '#ffffff');
+  camera(ctx, 330, 790, '#ffffff');
   homeIndicator(ctx, 'rgba(255,255,255,0.5)');
 };
 
@@ -728,6 +749,13 @@ export class PhoneScreen {
       this.draw(this.stage, this.t);
       onChange();
     });
+    void WALLPAPER.decode()
+      .then(() => {
+        this.fonts += 1;
+        this.draw(this.stage, this.t);
+        onChange();
+      })
+      .catch(() => undefined);
     // Keep the clock honest: repaint when the minute turns over.
     this.ticker = window.setInterval(() => {
       if (clock() === this.minute) return;

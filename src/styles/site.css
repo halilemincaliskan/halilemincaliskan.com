@@ -203,10 +203,13 @@ code {
   font-weight: 600;
   letter-spacing: -0.01em;
   box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.4);
+  /* One spring for every part, so height and width move together. On close the height leads and the
+     width follows a beat later; on open they start together. */
+  --island-spring: cubic-bezier(0.32, 0.72, 0, 1);
   transition:
-    border-radius 0.45s var(--ease),
-    padding 0.45s var(--ease),
-    box-shadow 0.45s;
+    border-radius 0.5s var(--island-spring),
+    padding 0.5s var(--island-spring),
+    box-shadow 0.5s var(--island-spring);
   cursor: default;
 }
 
@@ -267,7 +270,19 @@ code {
 }
 
 .island__gates span {
-  display: none;
+  display: inline-block;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  white-space: nowrap;
+  vertical-align: bottom;
+  transition:
+    max-width 0.5s var(--island-spring) 0.08s,
+    opacity 0.25s ease 0.08s;
+}
+
+.island__gates li {
+  gap: 0;
 }
 
 .island__gates i {
@@ -339,22 +354,42 @@ code {
 }
 
 .island[data-open] .island__gates span {
-  display: inline;
+  max-width: 7em;
+  margin-left: 5px;
+  opacity: 1;
+  transition:
+    max-width 0.5s var(--island-spring),
+    margin 0.5s var(--island-spring),
+    opacity 0.3s ease 0.1s;
 }
 
 .island[data-open] .island__log {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(245, 245, 247, 0.12);
+  border-top-color: rgba(245, 245, 247, 0.12);
+  opacity: 1;
+  transition:
+    max-height 0.5s var(--island-spring),
+    margin 0.5s var(--island-spring),
+    padding 0.5s var(--island-spring),
+    border-color 0.3s,
+    opacity 0.3s ease 0.1s;
 }
 
 .island__log {
   overflow: hidden;
+  /* The log never sets the island's width; only the top row does, so width can animate. */
+  width: 0;
+  min-width: 100%;
   max-height: 0;
+  border-top: 1px solid transparent;
+  opacity: 0;
   transition:
-    max-height 0.45s var(--ease),
-    margin 0.45s var(--ease),
-    padding 0.45s var(--ease);
+    max-height 0.45s var(--island-spring),
+    margin 0.45s var(--island-spring),
+    padding 0.45s var(--island-spring),
+    border-color 0.2s,
+    opacity 0.18s ease;
 }
 
 .island[data-open] .island__log {
@@ -981,7 +1016,9 @@ main {
   }
 
   .island[data-open] .island__gates span {
-    display: none;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
   }
 
   .chapter {
