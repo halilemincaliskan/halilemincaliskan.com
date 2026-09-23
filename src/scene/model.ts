@@ -404,17 +404,31 @@ export class PhoneModel {
       new MeshStandardMaterial({ color: '#b08d57', metalness: 0.8, roughness: 0.3 }),
       new MeshStandardMaterial({ color: '#d9d6cf', roughness: 0.4 }),
     ];
-    for (let i = 0; i < (lowPower ? 18 : 42); i += 1) {
-      const w = 0.08 + random() * 0.2;
-      const h = 0.06 + random() * 0.14;
-      const smd = new Mesh(new BoxGeometry(w, h, 0.05), smdMaterials[i % 3]);
-      const onFoot = random() > 0.55;
-      smd.position.set(
-        onFoot ? -0.3 + random() * 3.2 : -3.05 + random() * 2.66,
-        onFoot ? 2.25 + random() * 0.9 : 2.3 + random() * 0.45,
-        0.07,
-      );
-      board.add(smd);
+    // Small parts sit on a grid (one per cell, never overlapping) with slightly different heights,
+    // so no two top faces share a plane: overlapping coplanar faces z-fight and shimmer.
+    const cell = 0.3;
+    const areas: Array<[number, number, number, number]> = [
+      [-0.3, 2.25, 11, 3], // board foot, beside the cameras
+      [-3.05, 2.3, 9, 2], // strip under the package shields
+    ];
+    let part = 0;
+    for (const [x0, y0, columns, rows] of areas) {
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          if (random() < (lowPower ? 0.7 : 0.4)) continue;
+          const w = 0.08 + random() * (cell - 0.14);
+          const h = 0.06 + random() * (cell - 0.14);
+          const depth = 0.03 + (part % 5) * 0.009;
+          const smd = new Mesh(new BoxGeometry(w, h, depth), smdMaterials[part % 3]);
+          smd.position.set(
+            x0 + column * cell + cell / 2,
+            y0 + row * cell + cell / 2,
+            0.045 + depth / 2,
+          );
+          board.add(smd);
+          part += 1;
+        }
+      }
     }
     board.position.z = 0.05;
     internals.add(board);
