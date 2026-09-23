@@ -49,7 +49,10 @@ export const DISPLAY = {
   // border is the same thickness all the way round, corners included (HIG: concentric corners).
   radius: BODY.radius - GLASS_INSET - BEZEL,
 };
-// Camera plateau centre in front-view coordinates (it sits top-left when seen from the back).
+// iPhone 18 Pro camera plateau: an aluminium band across the full width of the back, from Apple's
+// product photos. PLATEAU.x/y is the centre of the lens cluster in front-view coordinates (the
+// cluster sits on the left when seen from the back, so x is positive here).
+const PLATEAU_HEIGHT = 4.3;
 const PLATEAU = { x: BODY.width / 2 - 0.3 - 1.9, y: BODY.height / 2 - 0.3 - 1.9, size: 3.8 };
 
 export type LayerId = 'back' | 'frame' | 'internals' | 'display';
@@ -141,31 +144,31 @@ export class PhoneModel {
     const round = lowPower ? 32 : 64;
     this.outline = squircle(BODY.width, BODY.height, BODY.radius, corner);
 
+    // Burgundy, from apple.com/tr/iphone-18-pro (swatch #2e0f14, finish #4d1821) and the official
+    // product photo (aluminium ~#4a2c30 in shadow, #875860 in highlights). Lifted slightly because
+    // this scene is lit brighter than Apple's black studio shots.
+    // Anodised aluminium: satin, so it doesn't blow out to pink when it faces the light.
     const titanium = new MeshPhysicalMaterial({
-      color: '#b3b1ac',
-      metalness: 1,
-      roughness: 0.28,
-      clearcoat: 0.25,
-      clearcoatRoughness: 0.35,
+      color: '#6e4650',
+      metalness: 0.9,
+      roughness: 0.42,
+      clearcoat: 0.15,
+      clearcoatRoughness: 0.5,
+      // The room environment is almost white; at full strength it washes the colour out.
+      envMapIntensity: 0.55,
     });
     const titaniumDark = new MeshPhysicalMaterial({
-      color: '#a19f9a',
-      metalness: 1,
-      roughness: 0.38,
+      color: '#6c444c',
+      metalness: 0.9,
+      roughness: 0.42,
+      envMapIntensity: 0.55,
     });
     const frostedGlass = new MeshPhysicalMaterial({
-      color: '#8c8b87',
+      color: '#34181e',
       metalness: 0,
       roughness: 0.6,
-      envMapIntensity: 0.4,
-    });
-    const glossGlass = new MeshPhysicalMaterial({
-      color: '#8a8985',
-      metalness: 0,
-      roughness: 0.2,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.1,
-      envMapIntensity: 0.7,
+      envMapIntensity: 0.15,
+      specularIntensity: 0.35,
     });
     const blackGlass = new MeshPhysicalMaterial({
       color: '#050506',
@@ -174,7 +177,7 @@ export class PhoneModel {
       clearcoat: 1,
       clearcoatRoughness: 0.03,
     });
-    const antennaBand = new MeshStandardMaterial({ color: '#8f8b85', roughness: 0.7 });
+    const antennaBand = new MeshStandardMaterial({ color: '#5e3a42', roughness: 0.7 });
     const matteBlack = new MeshStandardMaterial({ color: '#121316', roughness: 0.55 });
 
     // ---- Back glass, camera plateau and MagSafe --------------------------------------------
@@ -185,9 +188,22 @@ export class PhoneModel {
     backPanel.position.z = -HALF_DEPTH + 0.018;
     back.add(backPanel);
 
-    const plateauOutline = squircle(PLATEAU.size, PLATEAU.size, 0.98, corner, 3.6);
-    const plateau = new Mesh(slab(plateauOutline, 0.13, 0.05), glossGlass);
-    plateau.position.set(PLATEAU.x, PLATEAU.y, -HALF_DEPTH - 0.02);
+    const plateauWidth = BODY.width - 2 * GLASS_INSET;
+    const plateauOutline = squircle(
+      plateauWidth,
+      PLATEAU_HEIGHT,
+      BODY.radius - GLASS_INSET,
+      corner,
+    );
+    // The plateau is a big flat face; a more matte finish keeps it from flaring when it faces the key
+    // light, as it looks in Apple's photos.
+    const plateauMetal = titanium.clone();
+    plateauMetal.color = new Color('#5e3a43');
+    plateauMetal.roughness = 0.58;
+    plateauMetal.clearcoat = 0;
+    plateauMetal.envMapIntensity = 0.45;
+    const plateau = new Mesh(slab(plateauOutline, 0.13, 0.05), plateauMetal);
+    plateau.position.set(0, BODY.height / 2 - GLASS_INSET - PLATEAU_HEIGHT / 2, -HALF_DEPTH - 0.02);
     back.add(plateau);
 
     const lensTexture = this.lensTexture();
@@ -209,6 +225,7 @@ export class PhoneModel {
     ].map(([r, h]) => new Vector2(r, h));
     const ringGeometry = new LatheGeometry(ringProfile, round);
     const ringMetal = titanium.clone();
+    ringMetal.color = new Color('#a8737e');
     ringMetal.side = DoubleSide;
     const lensGeometry = new CircleGeometry(0.605, round);
     const plateauBack = -HALF_DEPTH - 0.085;
@@ -241,18 +258,19 @@ export class PhoneModel {
       }),
     );
     flash.rotation.y = Math.PI;
-    flash.position.set(PLATEAU.x - 0.95, PLATEAU.y + 1.27, plateauBack - 0.002);
+    const farSide = -BODY.width / 2 + 0.95;
+    flash.position.set(farSide, PLATEAU.y + 1.27, plateauBack - 0.002);
     back.add(flash);
     const lidar = new Mesh(
       new CircleGeometry(0.19, round),
       new MeshPhysicalMaterial({ color: '#0d0e10', roughness: 0.12, clearcoat: 1 }),
     );
     lidar.rotation.y = Math.PI;
-    lidar.position.set(PLATEAU.x - 0.95, PLATEAU.y - 1.27, plateauBack - 0.002);
+    lidar.position.set(farSide, PLATEAU.y - 1.0, plateauBack - 0.002);
     back.add(lidar);
     const mic = new Mesh(new CircleGeometry(0.035, 16), matteBlack);
     mic.rotation.y = Math.PI;
-    mic.position.set(PLATEAU.x - 1.45, PLATEAU.y + 0.02, plateauBack - 0.002);
+    mic.position.set(farSide, PLATEAU.y + 0.25, plateauBack - 0.002);
     back.add(mic);
 
     // MagSafe on the inside of the back glass, seen when the phone is taken apart.

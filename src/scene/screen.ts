@@ -53,8 +53,11 @@ function clock(): string {
   });
 }
 
+/** "Wed Sep 23", the short form the iOS 26+ lock screen uses above the clock. */
 function today(): string {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return new Date()
+    .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    .replace(',', '');
 }
 
 function clamp(value: number): number {
@@ -308,8 +311,12 @@ function ellipsis(ctx: CanvasRenderingContext2D, x: number, y: number, c: string
  * iOS status bar: the time is centred in the space left of the Dynamic Island, and signal, Wi-Fi
  * and battery are centred as one group in the space to its right.
  */
-function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
-  text(ctx, clock(), ISLAND.x / 2 + 2, 38, 17, 600, color, { align: 'center' });
+function statusBar(
+  ctx: CanvasRenderingContext2D,
+  color: string,
+  { time = true, wifi = true }: { time?: boolean; wifi?: boolean } = {},
+): void {
+  if (time) text(ctx, clock(), ISLAND.x / 2 + 2, 38, 17, 600, color, { align: 'center' });
   // Cellular: four bars of rising height.
   // Right ear is centred on x = 325.
   const x0 = 290;
@@ -318,6 +325,10 @@ function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
   });
   // Wi-Fi: filled fan of three bands.
   const cx = 319.5;
+  if (!wifi) {
+    battery(ctx, 322, color);
+    return;
+  }
   const cy = 36.4;
   ctx.fillStyle = color;
   for (const [outer, inner] of [
@@ -335,11 +346,15 @@ function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
   ctx.arc(cx * PT, cy * PT, 2.9 * PT, Math.PI * 1.25, Math.PI * 1.75);
   ctx.closePath();
   ctx.fill();
-  // Battery: a solid capsule (full charge) with a faint cap.
-  rect(ctx, 334, 26.2, 25.5, 12, 4, color);
+  battery(ctx, 334, color);
+}
+
+/** Battery: a solid capsule (full charge) with a faint cap. */
+function battery(ctx: CanvasRenderingContext2D, x: number, color: string): void {
+  rect(ctx, x, 26.2, 25.5, 12, 4, color);
   const base = ctx.globalAlpha;
   ctx.globalAlpha = base * 0.4;
-  rect(ctx, 360.6, 30, 1.8, 4.4, 1, color);
+  rect(ctx, x + 26.6, 30, 1.8, 4.4, 1, color);
   ctx.globalAlpha = base;
 }
 
@@ -472,11 +487,21 @@ function wallpaper(ctx: CanvasRenderingContext2D): void {
 /** Always-On lock screen: the phone is still in parts, so the display only glows faintly. */
 const lockScreen: Painter = (ctx) => {
   wallpaper(ctx);
-  text(ctx, today(), 201, 128, 20, 600, 'rgba(255,255,255,0.66)', { align: 'center' });
-  text(ctx, clock(), 201, 232, 110, 700, 'rgba(255,255,255,0.74)', {
-    align: 'center',
-    maxWidth: 360,
-  });
+  statusBar(ctx, 'rgba(255,255,255,0.92)', { time: false, wifi: false });
+  text(ctx, today(), 201, 112, 19, 600, 'rgba(255,255,255,0.8)', { align: 'center' });
+  // The iOS 26+ lock-screen clock: tall, narrow and translucent, tinted by the wallpaper.
+  ctx.save();
+  ctx.translate(201 * PT, 360 * PT);
+  ctx.scale(0.74, 2.35);
+  ctx.font = `500 ${118 * PT}px ${SANS}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(255,226,233,0.5)';
+  ctx.fillText(clock(), 0, 0);
+  ctx.lineWidth = 0.9 * PT;
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.strokeText(clock(), 0, 0);
+  ctx.restore();
 
   // Notification on clear Liquid Glass: app icon, app name, time, title and body.
   rect(ctx, 12, 668, 378, 86, 26, 'rgba(255,255,255,0.16)');
