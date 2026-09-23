@@ -35,10 +35,11 @@ import {
 
 // iPhone 18 Pro, 1 unit = 10 mm. Front proportions are measured from Apple's official iPhone 18 Pro
 // bezel (Apple Design Resources, 2026-09): body 1301 x 2716 px around a 1206 x 2622 px (402 x 874 pt)
-// screen, a 24 px titanium band and a 23 px black border, body corner radius 236 px. The width keeps
-// the 71.5 mm of the Pro line; depth is unchanged.
+// screen, a 24 px titanium band and a 23 px black border. The corner leaves a 69 px gap along the
+// diagonal; our continuous (superellipse, n = 3.2) corner leaves 0.195 r there, so r = 354 px (a
+// circular corner would be 236 px and look too tight). The width keeps the 71.5 mm of the Pro line.
 const PX = 7.15 / 1301;
-export const BODY = { width: 7.15, height: 2716 * PX, depth: 0.825, radius: 236 * PX } as const;
+export const BODY = { width: 7.15, height: 2716 * PX, depth: 0.825, radius: 354 * PX } as const;
 const HALF_DEPTH = BODY.depth / 2;
 const GLASS_INSET = 24 * PX;
 const BEZEL = 23.5 * PX;
@@ -54,6 +55,31 @@ export const DISPLAY = {
 // cluster sits on the left when seen from the back, so x is positive here).
 const PLATEAU_HEIGHT = 4.3;
 const PLATEAU = { x: BODY.width / 2 - 0.3 - 1.9, y: BODY.height / 2 - 0.3 - 1.9, size: 3.8 };
+
+/**
+ * The part of an outline above y = bottom, closed with a straight edge: the plateau's shape, rounded
+ * where the body is rounded and cut straight across where it drops to the back glass.
+ */
+function topCap(outline: OutlinePoint[], bottom: number): OutlinePoint[] {
+  const count = outline.length;
+  const start = outline.findIndex(
+    (p, i) => p.y >= bottom && outline[(i - 1 + count) % count].y < bottom,
+  );
+  const arc: Array<[number, number]> = [];
+  for (let k = 0; k < count; k += 1) {
+    const p = outline[(start + k) % count];
+    if (p.y < bottom) break;
+    arc.push([p.x, p.y]);
+  }
+  const hw = BODY.width / 2;
+  const raw: Array<[number, number]> = [[hw, bottom], ...arc, [-hw, bottom]];
+  return raw.map(([x, y], i) => {
+    const [px, py] = raw[(i - 1 + raw.length) % raw.length];
+    const [nx, ny] = raw[(i + 1) % raw.length];
+    const length = Math.hypot(nx - px, ny - py) || 1;
+    return { x, y, nx: (ny - py) / length, ny: -(nx - px) / length };
+  });
+}
 
 export type LayerId = 'back' | 'frame' | 'internals' | 'display';
 
@@ -183,28 +209,39 @@ export class PhoneModel {
     // ---- Back glass, camera plateau and MagSafe --------------------------------------------
     const back = new Group();
     back.name = 'back-glass';
-    const backOutline = offsetOutline(this.outline, -GLASS_INSET);
-    const backPanel = new Mesh(slab(backOutline, 0.06, 0.02), frostedGlass);
-    backPanel.position.z = -HALF_DEPTH + 0.018;
-    back.add(backPanel);
-
-    const plateauWidth = BODY.width - 2 * GLASS_INSET;
-    const plateauOutline = squircle(
-      plateauWidth,
-      PLATEAU_HEIGHT,
-      BODY.radius - GLASS_INSET,
-      corner,
-    );
-    // The plateau is a big flat face; a more matte finish keeps it from flaring when it faces the key
-    // light, as it looks in Apple's photos.
+    // iPhone 18 Pro back: an aluminium unibody. The camera plateau is the body itself, flush with
+    // the top and both sides; below it a glass panel sits inset like a card, with aluminium around it.
     const plateauMetal = titanium.clone();
     plateauMetal.color = new Color('#5e3a43');
     plateauMetal.roughness = 0.58;
     plateauMetal.clearcoat = 0;
     plateauMetal.envMapIntensity = 0.45;
+
+    const backOutline = offsetOutline(this.outline, -GLASS_INSET);
+    const backPanel = new Mesh(slab(backOutline, 0.06, 0.02), plateauMetal);
+    backPanel.position.z = -HALF_DEPTH + 0.018;
+    back.add(backPanel);
+
+    const plateauBottom = BODY.height / 2 - PLATEAU_HEIGHT;
+    // A hair inside the body outline so its sides don't z-fight with the frame.
+    const plateauOutline = offsetOutline(topCap(this.outline, plateauBottom), -0.008);
     const plateau = new Mesh(slab(plateauOutline, 0.13, 0.05), plateauMetal);
-    plateau.position.set(0, BODY.height / 2 - GLASS_INSET - PLATEAU_HEIGHT / 2, -HALF_DEPTH - 0.02);
+    plateau.position.z = -HALF_DEPTH - 0.02;
     back.add(plateau);
+
+    const cardInset = 0.3;
+    const cardTop = plateauBottom - 0.14;
+    const cardBottom = -BODY.height / 2 + cardInset;
+    const card = new Mesh(
+      slab(
+        squircle(BODY.width - 2 * cardInset, cardTop - cardBottom, BODY.radius - cardInset, corner),
+        0.05,
+        0.02,
+      ),
+      frostedGlass,
+    );
+    card.position.set(0, (cardTop + cardBottom) / 2, -HALF_DEPTH - 0.004);
+    back.add(card);
 
     const lensTexture = this.lensTexture();
     const lensGlass = new MeshPhysicalMaterial({
@@ -216,18 +253,18 @@ export class PhoneModel {
     });
     // Lathe profile of the raised titanium ring around each lens: [radius, height].
     const ringProfile = [
-      [0.6, 0.02],
-      [0.6, 0.2],
-      [0.645, 0.25],
-      [0.76, 0.26],
-      [0.815, 0.21],
-      [0.83, 0.02],
+      [0.66, 0.02],
+      [0.66, 0.18],
+      [0.675, 0.22],
+      [0.72, 0.22],
+      [0.74, 0.18],
+      [0.745, 0.02],
     ].map(([r, h]) => new Vector2(r, h));
     const ringGeometry = new LatheGeometry(ringProfile, round);
     const ringMetal = titanium.clone();
     ringMetal.color = new Color('#a8737e');
     ringMetal.side = DoubleSide;
-    const lensGeometry = new CircleGeometry(0.605, round);
+    const lensGeometry = new CircleGeometry(0.665, round);
     const plateauBack = -HALF_DEPTH - 0.085;
     // Back-view layout, mirrored into front coordinates (x flips).
     const lenses: Array<[number, number]> = [

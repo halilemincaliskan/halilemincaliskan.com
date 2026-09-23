@@ -175,14 +175,15 @@ code {
   justify-self: end;
   display: flex;
   align-items: center;
-  gap: 24px;
-  font-size: 12px;
+  gap: 26px;
+  font-size: 14px;
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 
 /* apple.com local-nav call to action: a small blue pill. */
 .bar__nav .bar__cta {
-  padding: 4px 11px;
+  padding: 6px 14px;
   border-radius: 980px;
   background: var(--run);
   color: #fff;
@@ -195,7 +196,7 @@ code {
 }
 
 .bar__nav a {
-  color: var(--ink-2);
+  color: var(--ink);
   text-decoration: none;
   transition: color 0.2s;
 }
