@@ -1,10 +1,12 @@
 // All site copy lives here. Components only render this data.
+// **text** marks a key phrase: it renders bold in the ink colour inside grey intro copy, the way
+// apple.com highlights the point of a paragraph.
 
 export const profile = {
   name: 'Halil Emin Çalışkan',
   role: 'iOS Developer',
   summary:
-    'I build iOS apps with Swift, SwiftUI and UIKit. I care about code that is modular, tested and checked on a real device, not just code that compiles.',
+    'I build iOS apps with Swift, SwiftUI and UIKit. I care about code that is **modular, tested and checked on a real device**, not just code that compiles.',
   location: 'Istanbul, Turkey',
   availability: 'Open to new roles: remote or on-site.',
   links: {
@@ -24,12 +26,25 @@ export const caseStudy = {
   company: 'BuyBuddy',
   title: 'Rebuilding a production iOS app in SwiftUI',
   context:
-    "BuyBuddy's staff app pairs, arms and disarms retail security tags over NFC and Bluetooth LE. The existing app was a large UIKit/VIPER codebase. I rebuilt it from scratch in SwiftUI with MVVM.",
+    "BuyBuddy's staff app pairs, arms and disarms retail security tags over NFC and Bluetooth LE. The existing app was a large UIKit/VIPER codebase. **I rebuilt it from scratch in SwiftUI with MVVM.**",
+  // Shown as tiles: a figure, what it counts, and one line of detail.
   built: [
-    '17 feature modules on top of 3 independent Swift Packages: design system, networking and hardware.',
-    'A test suite that grew from 0 to 465+ XCTest unit tests.',
-    'Strict SwiftLint with zero violations as the codebase grew past 500 files.',
-    'One command, verify.sh, that runs the simulator build, the device build, all tests and lint, and stops at the first failure.',
+    {
+      figure: '17',
+      label: 'feature modules',
+      text: 'On top of 3 independent Swift Packages: design system, networking and hardware.',
+    },
+    { figure: '465+', label: 'XCTest unit tests', text: 'A test suite that grew from zero.' },
+    {
+      figure: '0',
+      label: 'SwiftLint violations',
+      text: 'Strict mode, as the codebase grew past 500 files.',
+    },
+    {
+      figure: '1',
+      label: 'command',
+      text: 'verify.sh runs the simulator build, the device build, all tests and lint, and stops at the first failure.',
+    },
   ],
   lesson: {
     title: 'The old code is the real spec',
@@ -40,7 +55,7 @@ export const caseStudy = {
 export const workflow = {
   title: 'How I work',
   intro:
-    'I use AI coding agents (Claude Code, Codex) every day. Their code is only as good as the checks around it, so most of my effort goes into those checks.',
+    'I use AI coding agents (Claude Code, Codex) every day. Their code is only as good as the checks around it, so **most of my effort goes into those checks.**',
   steps: [
     {
       name: 'Split the work',
@@ -72,12 +87,12 @@ export const workflow = {
     body: [
       'One feature passed every check: build, 141 tests, lint. On my phone, it did not compile.',
       'The camera code was inside #if !targetEnvironment(simulator), so the simulator build never compiled it at all. Every check had passed over code that was never type-checked.',
-      'I added a device build to verify.sh, then tested the gate itself: I reverted the fix, and the simulator build stayed green while the device build failed. The blind spot was real, and now it is closed.',
+      'I added a device build to verify.sh, then tested the gate itself: I reverted the fix, and the simulator build stayed green while the device build failed. **The blind spot was real, and now it is closed.**',
     ],
   },
   defects: {
     title: 'Bugs the green checks missed',
-    note: '42 defects documented across 10 development cycles. A defect is counted only if it was found after build, tests and lint were already green. Some examples:',
+    note: '42 defects documented across 10 development cycles. A defect is counted only if it was **found after build, tests and lint were already green.** Some examples:',
     items: [
       'Delete account asked the user to type "SİL". Uppercasing produced a dotless "I" instead of the Turkish "İ", so the button never enabled.',
       'Tag IDs were lowercased before being sent to the server. Against the real backend, every nearby tag would have looked like an unknown product.',

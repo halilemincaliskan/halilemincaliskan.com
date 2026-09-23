@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Rich from '../components/Rich.astro';
 import {
   build,
   caseStudy,
@@ -12,17 +13,7 @@ import {
 } from '../data/site';
 
 const stage = (id: string) => build.stages.find((item) => item.id === id)!;
-const number = (id: string) =>
-  String(build.stages.findIndex((item) => item.id === id)).padStart(2, '0');
 const terminal = (id: string) => JSON.stringify(stage(id).terminal);
-
-// Wrap the few code terms that appear inside prose.
-const codeTerms = /(verify\.sh|#if !targetEnvironment\(simulator\))/;
-const parts = (value: string) =>
-  value
-    .split(codeTerms)
-    .filter(Boolean)
-    .map((text) => ({ text, code: codeTerms.test(text) }));
 ---
 
 <Base>
@@ -63,6 +54,9 @@ const parts = (value: string) =>
       <a href="#how-i-work">How I work</a>
       <a href="#experience">Experience</a>
       <a href="#contact">Contact</a>
+      <a class="bar__cta" href={`mailto:${profile.links.email}`}>
+        Email me
+      </a>
     </nav>
   </header>
 
@@ -116,7 +110,9 @@ const parts = (value: string) =>
           <br />
           Çalışkan
         </h1>
-        <p class="lede reveal">{profile.summary}</p>
+        <p class="lede intro reveal">
+          <Rich text={profile.summary} />
+        </p>
         <p class="note reveal">{profile.availability}</p>
         <div class="actions reveal">
           <a class="button" href={`mailto:${profile.links.email}`}>
@@ -143,13 +139,11 @@ const parts = (value: string) =>
       aria-labelledby="stats-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('stats')} · {stage('stats').label}
-        </p>
+        <p class="chapter__tag reveal">{stage('stats').label}</p>
         <h2 id="stats-title" class="sr-only">
           In numbers
         </h2>
-        <dl class="numbers">
+        <dl class="numbers numbers--row">
           {stats.map((stat) => {
             const target = Number.parseInt(stat.value, 10);
             const suffix = stat.value.endsWith('+') ? '+' : '';
@@ -174,24 +168,25 @@ const parts = (value: string) =>
       aria-labelledby="work-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('work')} · {stage('work').label} · Case study: {caseStudy.company}
-        </p>
+        <p class="chapter__tag reveal">Case study · {caseStudy.company}</p>
         <h2 id="work-title" class="headline reveal">
           {caseStudy.title}
         </h2>
-        <p class="body reveal">{caseStudy.context}</p>
-        <ol class="built">
-          {caseStudy.built.map((item, index) => (
-            <li class="reveal">
-              <span class="built__n">{String(index + 1).padStart(2, '0')}</span>
-              <span>
-                {parts(item).map((part) => (part.code ? <code>{part.text}</code> : part.text))}
-              </span>
+        <p class="intro reveal">
+          <Rich text={caseStudy.context} />
+        </p>
+        <ul class="tiles">
+          {caseStudy.built.map((item) => (
+            <li class="tile reveal">
+              <p class="tile__figure">{item.figure}</p>
+              <p class="tile__label">{item.label}</p>
+              <p class="tile__text">
+                <Rich text={item.text} />
+              </p>
             </li>
           ))}
-        </ol>
-        <figure class="quote reveal">
+        </ul>
+        <figure class="quote tile reveal">
           <blockquote>
             <p class="quote__title">{caseStudy.lesson.title}</p>
             <p>{caseStudy.lesson.body}</p>
@@ -208,13 +203,13 @@ const parts = (value: string) =>
       aria-labelledby="workflow-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('workflow')} · {stage('workflow').label}
-        </p>
+        <p class="chapter__tag reveal">{stage('workflow').label}</p>
         <h2 id="workflow-title" class="headline reveal">
           {workflow.title}
         </h2>
-        <p class="body reveal">{workflow.intro}</p>
+        <p class="intro reveal">
+          <Rich text={workflow.intro} />
+        </p>
         <ol class="pipeline">
           {workflow.steps.map((step, index) => (
             <li class="reveal">
@@ -224,9 +219,7 @@ const parts = (value: string) =>
               <div>
                 <h3>{step.name}</h3>
                 <p>
-                  {parts(step.text).map((part) =>
-                    part.code ? <code>{part.text}</code> : part.text,
-                  )}
+                  <Rich text={step.text} />
                 </p>
               </div>
             </li>
@@ -242,15 +235,13 @@ const parts = (value: string) =>
       aria-labelledby="gate-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('gate')} · {stage('gate').label}
-        </p>
+        <p class="chapter__tag reveal">{stage('gate').label}</p>
         <h2 id="gate-title" class="headline reveal">
           {workflow.story.title}
         </h2>
-        {workflow.story.body.map((paragraph) => (
-          <p class="body reveal">
-            {parts(paragraph).map((part) => (part.code ? <code>{part.text}</code> : part.text))}
+        {workflow.story.body.map((paragraph, index) => (
+          <p class:list={[index === 0 ? 'intro' : 'body', 'reveal']}>
+            <Rich text={paragraph} />
           </p>
         ))}
         <div class="checks reveal" aria-label="Result with the fix reverted">
@@ -274,13 +265,13 @@ const parts = (value: string) =>
       aria-labelledby="defects-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('defects')} · {stage('defects').label}
-        </p>
+        <p class="chapter__tag reveal">{stage('defects').label}</p>
         <h2 id="defects-title" class="headline reveal">
           {workflow.defects.title}
         </h2>
-        <p class="body reveal">{workflow.defects.note}</p>
+        <p class="intro reveal">
+          <Rich text={workflow.defects.note} />
+        </p>
         <ul class="defects">
           {workflow.defects.items.map((item, index) => (
             <li class="reveal">
@@ -301,9 +292,7 @@ const parts = (value: string) =>
       aria-labelledby="experience-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('experience')} · {stage('experience').label}
-        </p>
+        <p class="chapter__tag reveal">{stage('experience').label}</p>
         <h2 id="experience-title" class="headline reveal">
           Experience
         </h2>
@@ -358,9 +347,7 @@ const parts = (value: string) =>
       aria-labelledby="contact-title"
     >
       <div class="copy">
-        <p class="chapter__tag reveal">
-          {number('contact')} · {stage('contact').label}
-        </p>
+        <p class="chapter__tag reveal">{stage('contact').label}</p>
         <h2 id="contact-title" class="success reveal">
           <svg class="success__icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="12" fill="#34c759"></circle>
@@ -375,18 +362,36 @@ const parts = (value: string) =>
           </svg>
           {build.successLabel}
         </h2>
-        <p class="body reveal">{profile.availability}</p>
-        <a class="mail reveal" href={`mailto:${profile.links.email}`}>
-          {profile.links.email}
-        </a>
-        <div class="actions reveal">
-          <a class="textlink" href={profile.links.linkedin}>
-            LinkedIn <span aria-hidden="true">↗</span>
-          </a>
-          <a class="textlink" href={profile.links.github}>
-            GitHub <span aria-hidden="true">↗</span>
-          </a>
-        </div>
+        <p class="intro reveal">{profile.availability}</p>
+        <ul class="contact-tiles">
+          <li class="reveal">
+            <a class="tile tile--link tile--wide" href={`mailto:${profile.links.email}`}>
+              <span class="tile__label">Email</span>
+              <span class="tile__value">{profile.links.email}</span>
+              <span class="tile__go" aria-hidden="true">
+                ›
+              </span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a class="tile tile--link" href={profile.links.linkedin}>
+              <span class="tile__label">LinkedIn</span>
+              <span class="tile__value">Profile</span>
+              <span class="tile__go" aria-hidden="true">
+                ↗
+              </span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a class="tile tile--link" href={profile.links.github}>
+              <span class="tile__label">GitHub</span>
+              <span class="tile__value">Code</span>
+              <span class="tile__go" aria-hidden="true">
+                ↗
+              </span>
+            </a>
+          </li>
+        </ul>
         <p class="footer">
           © {new Date().getFullYear()} {profile.name}
         </p>

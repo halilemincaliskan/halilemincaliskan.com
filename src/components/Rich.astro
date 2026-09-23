@@ -1,0 +1,25 @@
+---
+// Renders copy from src/data/site.ts: **key phrase** becomes <strong>, and the few code terms
+// that appear in prose become <code>.
+interface Props {
+  text: string;
+}
+
+const { text } = Astro.props;
+const codeTerms = /(verify\.sh|#if !targetEnvironment\(simulator\))/;
+const segments = text
+  .split(/(\*\*[^*]+\*\*)/)
+  .filter(Boolean)
+  .flatMap((chunk) => {
+    const bold = chunk.startsWith('**') && chunk.endsWith('**');
+    const body = bold ? chunk.slice(2, -2) : chunk;
+    return body
+      .split(codeTerms)
+      .filter(Boolean)
+      .map((value) => ({ value, bold, code: codeTerms.test(value) }));
+  });
+---
+
+{segments.map(({ value, bold, code }) =>
+  code ? <code>{value}</code> : bold ? <strong>{value}</strong> : value,
+)}

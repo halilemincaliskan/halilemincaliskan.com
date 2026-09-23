@@ -166,7 +166,7 @@ code {
 .bar__name {
   justify-self: start;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 19px;
   letter-spacing: -0.01em;
   text-decoration: none;
 }
@@ -174,8 +174,24 @@ code {
 .bar__nav {
   justify-self: end;
   display: flex;
-  gap: 28px;
-  font-size: 14px;
+  align-items: center;
+  gap: 24px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+/* apple.com local-nav call to action: a small blue pill. */
+.bar__nav .bar__cta {
+  padding: 4px 11px;
+  border-radius: 980px;
+  background: var(--run);
+  color: #fff;
+  font-weight: 600;
+}
+
+.bar__nav .bar__cta:hover {
+  background: #0077ed;
+  color: #fff;
 }
 
 .bar__nav a {
@@ -490,28 +506,29 @@ main {
 
 .chapter__tag,
 .kicker {
-  margin-bottom: 16px;
-  font-size: 17px;
+  margin-bottom: 12px;
+  font-family: var(--display);
+  font-size: clamp(17px, 1.5vw, 21px);
+  line-height: 1.2;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.011em;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .display {
   font-family: var(--display);
-  font-size: clamp(56px, 7.6vw, 112px);
-  line-height: 0.98;
-  letter-spacing: -0.03em;
-  font-weight: 700;
+  font-size: clamp(56px, 7vw, 96px);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  font-weight: 600;
 }
 
 .headline {
   font-family: var(--display);
-  font-size: clamp(34px, 4vw, 56px);
-  line-height: 1.07;
-  letter-spacing: -0.025em;
-  font-weight: 700;
+  font-size: clamp(32px, 3.4vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -0.003em;
+  font-weight: 600;
   margin-bottom: 24px;
 }
 
@@ -522,6 +539,26 @@ main {
   line-height: 1.45;
   color: var(--ink-2);
   letter-spacing: -0.005em;
+}
+
+/* apple.com intro copy: grey, semibold, with the point of the paragraph in ink. */
+.intro {
+  margin-bottom: 8px;
+  font-family: var(--display);
+  font-size: clamp(19px, 1.5vw, 21px);
+  line-height: 1.38;
+  font-weight: 600;
+  letter-spacing: 0.011em;
+  color: var(--muted);
+}
+
+.intro strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.intro + .body {
+  margin-top: 20px;
 }
 
 .note {
@@ -550,11 +587,11 @@ main {
   align-items: center;
   height: 44px;
   padding: 0 22px;
-  border-radius: 999px;
+  border-radius: 980px;
   background: var(--run);
   color: #fff;
-  font-weight: 590;
-  font-size: 15px;
+  font-weight: 400;
+  font-size: 17px;
   text-decoration: none;
   transition:
     transform 0.2s var(--ease),
@@ -568,7 +605,7 @@ main {
 
 .textlink {
   color: var(--accent);
-  font-size: 15px;
+  font-size: 17px;
   text-decoration: none;
 }
 
@@ -614,18 +651,162 @@ main {
   border-bottom: 0;
 }
 
+.numbers--row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.numbers.numbers--row .numbers__item {
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-bottom: 0;
+  border-bottom: 0;
+  gap: 8px;
+}
+
+/* Number on top, label under it, every number on the same line. */
+.numbers.numbers--row dd {
+  order: -1;
+  font-size: clamp(32px, 3.4vw, 52px);
+  white-space: nowrap;
+}
+
+.numbers.numbers--row dt {
+  font-size: 14px;
+  line-height: 1.43;
+}
+
 .numbers dd {
   font-size: clamp(64px, 8vw, 112px);
   line-height: 0.95;
   font-family: var(--display);
-  font-weight: 700;
-  letter-spacing: -0.035em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
 }
 
 .numbers dt {
   color: var(--muted);
   font-size: 17px;
+}
+
+/* Tiles: apple.com's rounded cards, white on the light grey page. */
+
+.tile {
+  padding: 28px 26px;
+  border-radius: 28px;
+  background: #fff;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin: 36px 0 16px;
+}
+
+.tile__figure {
+  font-family: var(--display);
+  font-size: 48px;
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.003em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile__label {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+
+.tile__text {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.43;
+  color: var(--muted);
+}
+
+.contact-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.contact-tiles li:first-child {
+  grid-column: 1 / -1;
+}
+
+.tile--link {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-height: 132px;
+  align-content: start;
+  text-decoration: none;
+  transition:
+    transform 0.3s var(--ease),
+    box-shadow 0.3s var(--ease);
+}
+
+.tile--link:hover {
+  transform: scale(1.01);
+  box-shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.25);
+}
+
+.tile--link .tile__label {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tile__value {
+  font-family: var(--display);
+  font-size: clamp(21px, 2vw, 28px);
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: 0.007em;
+  overflow-wrap: anywhere;
+}
+
+.tile__go {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e8e8ed;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+@media (max-width: 600px) {
+  .tiles,
+  .contact-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-tiles li:first-child {
+    grid-column: auto;
+  }
+
+  .tile__figure {
+    font-size: 40px;
+  }
+
+  .tile__value {
+    font-size: 19px;
+  }
+
+  .numbers--row {
+    gap: 14px;
+  }
 }
 
 /* Case study */
@@ -653,15 +834,15 @@ main {
 }
 
 .quote {
-  padding: 28px 0 0;
-  border-top: 1px solid var(--line);
+  margin-top: 0;
 }
 
 .quote__title {
   margin-bottom: 10px;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.009em;
   color: var(--ink);
 }
 
@@ -725,8 +906,8 @@ main {
 
 .checks {
   margin-top: 36px;
-  padding: 20px 22px;
-  border-radius: 18px;
+  padding: 22px 26px;
+  border-radius: 28px;
   background: #fff;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.04),
@@ -784,10 +965,9 @@ main {
   display: grid;
   grid-template-columns: 36px 1fr;
   gap: 8px;
-  padding: 18px 20px 18px 16px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 20px 22px 20px 18px;
+  border-radius: 20px;
+  background: #fff;
   color: var(--ink-2);
   font-size: 16px;
 }
@@ -850,9 +1030,10 @@ main {
 
 .timeline h3 {
   margin: 4px 0 8px;
-  font-size: 20px;
-  font-weight: 640;
-  letter-spacing: -0.02em;
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.011em;
 }
 
 .timeline h3 span {
@@ -916,8 +1097,8 @@ main {
   font-size: clamp(36px, 4.6vw, 68px);
   line-height: 1;
   white-space: nowrap;
-  letter-spacing: -0.03em;
-  font-weight: 700;
+  letter-spacing: -0.015em;
+  font-weight: 600;
   margin-bottom: 24px;
 }
 
