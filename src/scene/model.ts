@@ -236,7 +236,7 @@ export class PhoneModel {
 
     // Apple logo, polished, in the middle of the glass.
     const logo = this.appleLogo(1.3);
-    logo.position.set(0, -0.95, -HALF_DEPTH - 0.032);
+    logo.position.set(0, -1.5, -HALF_DEPTH - 0.032);
     logo.rotation.y = Math.PI;
     back.add(logo);
 
@@ -248,41 +248,67 @@ export class PhoneModel {
       clearcoat: 1,
       clearcoatRoughness: 0.02,
     });
-    // Lathe profile of the raised titanium ring around each lens: [radius, height].
+    // Camera layout measured from Apple's product photo, in island units: the two left lenses sit
+    // in the island's corners (top-left and bottom-left seen from the back), the third between them
+    // further in; flash and LiDAR line up with the top and bottom lenses on the far side.
+    const islandTop = BODY.height / 2 - islandInset;
+    const islandBottom = islandTop - plateauHeight;
+    const islandEdge = BODY.width / 2 - islandInset; // lens side, in front-view x
+    const outer = 0.92; // lens housing radius
+    const margin = 0.1;
+    const lensColumn = islandEdge - margin - outer;
+    const topLens = islandTop - margin - outer;
+    const bottomLens = islandBottom + margin + outer;
+    const middleLens = (topLens + bottomLens) / 2;
+
+    // Lens housing: flat-topped ring in the island's colour, not a rounded torus.
     const ringProfile = [
-      [0.66, 0.02],
-      [0.66, 0.18],
-      [0.675, 0.22],
-      [0.72, 0.22],
-      [0.74, 0.18],
-      [0.745, 0.02],
+      [0.815, 0.02],
+      [0.815, 0.19],
+      [0.83, 0.205],
+      [outer - 0.015, 0.205],
+      [outer, 0.19],
+      [outer, 0.02],
     ].map(([r, h]) => new Vector2(r, h));
     const ringGeometry = new LatheGeometry(ringProfile, round);
-    const ringMetal = titanium.clone();
-    ringMetal.color = new Color('#a8737e');
+    const ringMetal = islandMetal.clone();
+    ringMetal.metalness = 0.6;
+    ringMetal.roughness = 0.35;
     ringMetal.side = DoubleSide;
-    const lensGeometry = new CircleGeometry(0.665, round);
+    const lensGeometry = new CircleGeometry(0.82, round);
     const plateauBack = -HALF_DEPTH - 0.085;
-    // Back-view layout, mirrored into front coordinates (x flips).
     const lenses: Array<[number, number]> = [
-      [-0.9, 0.9],
-      [-0.9, -0.9],
-      [0.88, 0],
+      [lensColumn, topLens],
+      [lensColumn, bottomLens],
+      [lensColumn - 1.95, middleLens],
     ];
-    for (const [u, v] of lenses) {
-      const x = PLATEAU.x - u;
-      const y = PLATEAU.y + v;
+    for (const [x, y] of lenses) {
       const ring = new Mesh(ringGeometry, ringMetal);
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(x, y, plateauBack);
       back.add(ring);
       const lens = new Mesh(lensGeometry, lensGlass);
       lens.rotation.y = Math.PI;
-      lens.position.set(x, y, plateauBack - 0.19);
+      lens.position.set(x, y, plateauBack - 0.17);
       back.add(lens);
     }
-    const flash = new Mesh(
-      new CircleGeometry(0.28, round),
+
+    // Flash and LiDAR sit slightly recessed: a dark rim around each suggests the dip.
+    const farSide = -islandEdge + 0.9;
+    const recess = new MeshBasicMaterial({ color: '#1a0c10', transparent: true, opacity: 0.55 });
+    const addRecessed = (radius: number, y: number, material: Material): void => {
+      const rim = new Mesh(new RingGeometry(radius, radius + 0.045, round), recess);
+      rim.rotation.y = Math.PI;
+      rim.position.set(farSide, y, plateauBack - 0.003);
+      back.add(rim);
+      const disc = new Mesh(new CircleGeometry(radius, round), material);
+      disc.rotation.y = Math.PI;
+      disc.position.set(farSide, y, plateauBack - 0.002);
+      back.add(disc);
+    };
+    addRecessed(
+      0.34,
+      topLens,
       new MeshPhysicalMaterial({
         color: '#f4efe2',
         roughness: 0.35,
@@ -291,20 +317,14 @@ export class PhoneModel {
         emissiveIntensity: 0.15,
       }),
     );
-    flash.rotation.y = Math.PI;
-    const farSide = -BODY.width / 2 + 0.95;
-    flash.position.set(farSide, PLATEAU.y + 1.27, plateauBack - 0.002);
-    back.add(flash);
-    const lidar = new Mesh(
-      new CircleGeometry(0.26, round),
+    addRecessed(
+      0.3,
+      bottomLens,
       new MeshPhysicalMaterial({ color: '#0d0e10', roughness: 0.12, clearcoat: 1 }),
     );
-    lidar.rotation.y = Math.PI;
-    lidar.position.set(farSide, PLATEAU.y - 1.0, plateauBack - 0.002);
-    back.add(lidar);
-    const mic = new Mesh(new CircleGeometry(0.035, 16), matteBlack);
+    const mic = new Mesh(new CircleGeometry(0.04, 16), matteBlack);
     mic.rotation.y = Math.PI;
-    mic.position.set(farSide, PLATEAU.y + 0.25, plateauBack - 0.002);
+    mic.position.set(farSide, middleLens + 0.2, plateauBack - 0.002);
     back.add(mic);
 
     // MagSafe on the inside of the back glass, seen when the phone is taken apart.
@@ -668,11 +688,11 @@ export class PhoneModel {
     // SVG y runs down; flip it so the logo stands upright.
     geometry.scale(scale, -scale, 1);
     const material = new MeshPhysicalMaterial({
-      color: '#7a4450',
-      metalness: 0.6,
-      roughness: 0.22,
-      clearcoat: 1,
-      envMapIntensity: 0.5,
+      // Polished, but tinted by the finish like in Apple's photos rather than a grey mirror.
+      color: '#74404c',
+      metalness: 0.15,
+      roughness: 0.3,
+      envMapIntensity: 0.25,
       side: DoubleSide,
     });
     return new Mesh(geometry, material);
