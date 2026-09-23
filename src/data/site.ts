@@ -236,6 +236,12 @@ export const build = {
       modulesHeader: 'Feature modules',
       compiling: 'Compiling',
       compiled: 'Compiled',
+      checksHeader: 'After every module',
+      checks: [
+        ['Unit tests', '465 passed'],
+        ['SwiftLint', '0 violations'],
+        ['Device build', 'Passed'],
+      ],
     },
     workflow: {
       title: 'Pipeline',

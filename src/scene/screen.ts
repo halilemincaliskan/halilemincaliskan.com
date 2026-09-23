@@ -41,11 +41,13 @@ const TAB_Y = 790;
 type Painter = (ctx: CanvasRenderingContext2D, t: number) => void;
 type Tab = 0 | 1 | 2 | 3;
 
-/** The visitor's own time, the way the iOS lock screen shows it (no AM/PM). */
+/** The visitor's own time on a 24-hour clock, as the lock screen shows it in Turkey. */
 function clock(): string {
-  return new Date()
-    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    .replace(/\s?[APap]\.?[Mm]\.?$/, '');
+  return new Date().toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
 }
 
 function today(): string {
@@ -404,36 +406,46 @@ function finish(ctx: CanvasRenderingContext2D, tab: Tab): void {
 
 // ---- Screens ----------------------------------------------------------------------------------
 
+/**
+ * An abstract, iOS-style wallpaper drawn in code (Apple's own wallpapers are copyrighted, so they
+ * can't ship on this site): deep blue at the top flowing into warm light at the bottom.
+ */
+function wallpaper(ctx: CanvasRenderingContext2D): void {
+  const base = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  base.addColorStop(0, '#0a1330');
+  base.addColorStop(0.45, '#1c1f5c');
+  base.addColorStop(0.75, '#5a2a6e');
+  base.addColorStop(1, '#c4563a');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  const blobs: Array<[number, number, number, string]> = [
+    [0.15, 0.62, 0.75, 'rgba(255,141,40,0.55)'],
+    [0.9, 0.78, 0.6, 'rgba(255,45,85,0.45)'],
+    [0.85, 0.22, 0.7, 'rgba(0,136,255,0.45)'],
+    [0.2, 0.08, 0.55, 'rgba(97,85,245,0.5)'],
+  ];
+  for (const [x, y, r, color] of blobs) {
+    const glow = ctx.createRadialGradient(
+      WIDTH * x,
+      HEIGHT * y,
+      0,
+      WIDTH * x,
+      HEIGHT * y,
+      WIDTH * r,
+    );
+    glow.addColorStop(0, color);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  }
+  // Always-On dims the wallpaper; the phone is still in parts.
+  ctx.fillStyle = 'rgba(0,0,0,0.38)';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+}
+
 /** Always-On lock screen: the phone is still in parts, so the display only glows faintly. */
 const lockScreen: Painter = (ctx) => {
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  const warm = ctx.createRadialGradient(
-    WIDTH * 0.3,
-    HEIGHT * 0.8,
-    10,
-    WIDTH * 0.3,
-    HEIGHT * 0.8,
-    WIDTH,
-  );
-  warm.addColorStop(0, 'rgba(255,141,40,0.24)');
-  warm.addColorStop(0.5, 'rgba(255,56,60,0.08)');
-  warm.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = warm;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  const cool = ctx.createRadialGradient(
-    WIDTH * 0.85,
-    HEIGHT * 0.2,
-    10,
-    WIDTH * 0.85,
-    HEIGHT * 0.2,
-    WIDTH * 0.9,
-  );
-  cool.addColorStop(0, 'rgba(97,85,245,0.2)');
-  cool.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = cool;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
+  wallpaper(ctx);
   text(ctx, today(), 201, 128, 20, 600, 'rgba(255,255,255,0.66)', { align: 'center' });
   text(ctx, clock(), 201, 232, 110, 700, 'rgba(255,255,255,0.74)', {
     align: 'center',
@@ -442,26 +454,25 @@ const lockScreen: Painter = (ctx) => {
 
   // Notification on clear Liquid Glass: app icon, app name, time, title and body.
   rect(ctx, 12, 668, 378, 86, 26, 'rgba(255,255,255,0.16)');
-  const icon = ctx.createLinearGradient(0, 684 * PT, 0, 722 * PT);
+  const icon = ctx.createLinearGradient(0, 692 * PT, 0, 730 * PT);
   icon.addColorStop(0, '#3a3a3c');
   icon.addColorStop(1, '#1c1c1e');
-  rect(ctx, 26, 684, 38, 38, 9, '#1c1c1e');
   ctx.fillStyle = icon;
   ctx.beginPath();
-  ctx.roundRect(26 * PT, 684 * PT, 38 * PT, 38 * PT, 9 * PT);
+  ctx.roundRect(26 * PT, 692 * PT, 38 * PT, 38 * PT, 9 * PT);
   ctx.fill();
   line(ctx, IOS.green, 2.6, [
-    [36, 697],
-    [42, 703],
-    [36, 709],
+    [36, 705],
+    [42, 711],
+    [36, 717],
   ]);
   line(ctx, IOS.green, 2.6, [
-    [45, 710],
-    [53, 710],
+    [45, 718],
+    [53, 718],
   ]);
-  text(ctx, COPY.hero.title, 76, 700, 15, 600, 'rgba(255,255,255,0.86)', { maxWidth: 240 });
-  text(ctx, 'now', 374, 700, 13, 400, 'rgba(255,255,255,0.5)', { align: 'right' });
-  text(ctx, COPY.hero.body, 76, 720, 15, 400, 'rgba(255,255,255,0.72)', { maxWidth: 290 });
+  text(ctx, COPY.hero.title, 76, 707, 15, 600, 'rgba(255,255,255,0.9)', { maxWidth: 240 });
+  text(ctx, 'now', 374, 707, 13, 400, 'rgba(255,255,255,0.55)', { align: 'right' });
+  text(ctx, COPY.hero.body, 76, 727, 15, 400, 'rgba(255,255,255,0.78)', { maxWidth: 290 });
 
   // Flashlight and camera quick actions.
   for (const x of [72, 330]) circle(ctx, x, 790, 25, 'rgba(255,255,255,0.14)');
@@ -497,33 +508,23 @@ const modules: Painter = (ctx, t) => {
   const count = 17;
   const compiled = clamp((t - 0.22) / 0.3) * count;
   const done = compiled >= count;
-  const top = section(ctx, 370, 1, copy.modulesHeader, 92);
+  const top = section(ctx, 386, 1, copy.modulesHeader, 76);
   text(ctx, done ? copy.compiled : copy.compiling, 36, top + 32, 17, 400, IOS.label);
   text(ctx, `${Math.floor(compiled)} of ${count}`, 366, top + 32, 17, 400, IOS.secondary, {
     align: 'right',
   });
   rect(ctx, 36, top + 54, 330, 4, 2, IOS.track);
   rect(ctx, 36, top + 54, 330 * (compiled / count), 4, 2, done ? IOS.green : IOS.blue);
-  text(ctx, 'All tests run after every module.', 36, top + 78, 13, 400, IOS.secondary);
 
-  // A module grid, one tile per feature module, like a Shortcuts-style collection.
-  const gridTop = 488;
-  for (let i = 0; i < count; i += 1) {
-    const col = i % 6;
-    const row = Math.floor(i / 6);
-    const x = MARGIN + col * 62;
-    const y = gridTop + row * 62;
-    const on = clamp(compiled - i);
-    rect(ctx, x, y, 54, 54, 14, IOS.cell);
-    if (on > 0) {
-      const base = ctx.globalAlpha;
-      ctx.globalAlpha = base * on;
-      statusIcon(ctx, x + 27, y + 27, 12, 'pass');
-      ctx.globalAlpha = base;
-    } else {
-      text(ctx, String(i + 1), x + 27, y + 33, 15, 500, IOS.tertiary, { align: 'center' });
-    }
-  }
+  // What runs after every module: the checks that keep the build honest.
+  const checksTop = section(ctx, 504, copy.checks.length, copy.checksHeader);
+  copy.checks.forEach(([label, value], index) => {
+    const y = checksTop + index * CELL + CELL / 2;
+    const ran = done || compiled >= (index + 1) * 5;
+    statusIcon(ctx, 38, y, 11, ran ? 'pass' : 'wait');
+    text(ctx, label, 60, y + 6, 17, 400, ran ? IOS.label : IOS.secondary);
+    text(ctx, ran ? value : 'Waiting', 366, y + 6, 17, 400, IOS.secondary, { align: 'right' });
+  });
   finish(ctx, 0);
 };
 

@@ -125,7 +125,7 @@ function expandIsland(): void {
   window.clearTimeout(collapseTimer);
   collapseTimer = window.setTimeout(() => {
     if (!island.matches(':hover, :focus-within')) delete island.dataset.open;
-  }, 2400);
+  }, 1600);
 }
 
 function enterStage(stage: StageId, first: boolean): void {
@@ -242,6 +242,13 @@ async function startScene(): Promise<void> {
 island?.addEventListener('mouseenter', expandIsland);
 island?.addEventListener('focus', expandIsland);
 island?.addEventListener('click', expandIsland);
+// Close shortly after the pointer leaves instead of waiting out the timer.
+island?.addEventListener('mouseleave', () => {
+  window.clearTimeout(collapseTimer);
+  collapseTimer = window.setTimeout(() => {
+    if (!island.matches(':hover, :focus-within')) delete island.dataset.open;
+  }, 250);
+});
 window.addEventListener('scroll', requestUpdate, { passive: true });
 window.addEventListener(
   'resize',

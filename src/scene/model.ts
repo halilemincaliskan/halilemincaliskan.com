@@ -5,6 +5,7 @@ import {
   Color,
   CylinderGeometry,
   DoubleSide,
+  ExtrudeGeometry,
   Group,
   LatheGeometry,
   Material,
@@ -15,6 +16,7 @@ import {
   PlaneGeometry,
   RingGeometry,
   SRGBColorSpace,
+  Shape,
   Texture,
   Vector2,
   Vector3,
@@ -39,7 +41,9 @@ const BEZEL = 0.135;
 export const DISPLAY = {
   width: BODY.width - 2 * (GLASS_INSET + BEZEL),
   height: BODY.height - 2 * (GLASS_INSET + BEZEL),
-  radius: BODY.radius - GLASS_INSET - BEZEL * 0.6,
+  // Concentric with the body: the screen outline is the body outline offset inwards, so the black
+  // border is the same thickness all the way round, corners included (HIG: concentric corners).
+  radius: BODY.radius - GLASS_INSET - BEZEL,
 };
 // Camera plateau centre in front-view coordinates (it sits top-left when seen from the back).
 const PLATEAU = { x: BODY.width / 2 - 0.3 - 1.9, y: BODY.height / 2 - 0.3 - 1.9, size: 3.8 };
@@ -333,23 +337,40 @@ export class PhoneModel {
       [-1, 6.3, 1.05, titaniumDark],
       [1, 4.95, 1.62, titaniumDark],
     ];
+    // Real iPhone buttons are capsules: fully rounded ends, slightly domed faces.
+    const capsule = (length: number, height: number, depth: number): ExtrudeGeometry => {
+      const r = height / 2;
+      const shape = new Shape();
+      shape.moveTo(-length / 2 + r, -r);
+      shape.lineTo(length / 2 - r, -r);
+      shape.absarc(length / 2 - r, 0, r, -Math.PI / 2, Math.PI / 2, false);
+      shape.lineTo(-length / 2 + r, r);
+      shape.absarc(-length / 2 + r, 0, r, Math.PI / 2, (Math.PI * 3) / 2, false);
+      const geometry = new ExtrudeGeometry(shape, {
+        depth,
+        bevelEnabled: true,
+        bevelThickness: 0.02,
+        bevelSize: 0.02,
+        bevelSegments: lowPower ? 2 : 4,
+        curveSegments: lowPower ? 8 : 16,
+      });
+      // Length along y, height along z, extruded outwards along x.
+      geometry.rotateY(Math.PI / 2);
+      geometry.rotateX(Math.PI / 2);
+      geometry.translate(-depth / 2, 0, 0);
+      return geometry;
+    };
     for (const [side, fromTop, length, material] of buttons) {
-      const button = new Mesh(
-        new RoundedBoxGeometry(0.12, length, 0.3, lowPower ? 2 : 4, 0.05),
-        material,
-      );
-      button.position.set(side * (hw + 0.025), hh - fromTop, 0);
+      const button = new Mesh(capsule(length, 0.26, 0.08), material);
+      button.position.set(side * (hw + 0.035), hh - fromTop, 0);
       frame.add(button);
     }
     // Camera Control: a flush sapphire pad in a thin titanium surround.
-    const controlSurround = new Mesh(
-      new RoundedBoxGeometry(0.06, 1.95, 0.36, lowPower ? 2 : 4, 0.03),
-      titaniumDark,
-    );
+    const controlSurround = new Mesh(capsule(1.95, 0.34, 0.03), titaniumDark);
     controlSurround.position.set(hw + 0.005, hh - 10.05, 0);
     frame.add(controlSurround);
     const control = new Mesh(
-      new RoundedBoxGeometry(0.07, 1.82, 0.28, lowPower ? 2 : 4, 0.03),
+      capsule(1.82, 0.26, 0.04),
       new MeshPhysicalMaterial({ color: '#8d8a86', roughness: 0.1, clearcoat: 1, metalness: 0.2 }),
     );
     control.position.set(hw + 0.008, hh - 10.05, 0);
@@ -478,7 +499,7 @@ export class PhoneModel {
     const glass = new Mesh(slab(glassOutline, 0.07, 0.03), blackGlass);
     glass.position.z = HALF_DEPTH - 0.02;
     display.add(glass);
-    const screenOutline = squircle(DISPLAY.width, DISPLAY.height, DISPLAY.radius, corner);
+    const screenOutline = offsetOutline(this.outline, -(GLASS_INSET + BEZEL));
     this.screenMaterial = new MeshBasicMaterial({ map: screenTexture, toneMapped: false });
     const screen = new Mesh(
       texturedFace(screenOutline, DISPLAY.width, DISPLAY.height),
