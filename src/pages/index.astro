@@ -66,6 +66,39 @@ const parts = (value: string) =>
     </nav>
   </header>
 
+  <!-- Narrow screens: a floating Liquid Glass tab bar, as on iPhone. Icons stand in for SF Symbols. -->
+  <nav class="tabs" aria-label="Sections">
+    <a href="#work" data-tab="work">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14.5 4.5l5 5-2.5 2.5-5-5z M12 7l-7.5 7.5a1.8 1.8 0 002.5 2.5L14.5 9.5"></path>
+      </svg>
+      <span>Work</span>
+    </a>
+    <a href="#how-i-work" data-tab="how-i-work">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 6h11M9 12h11M9 18h11"></path>
+        <circle cx="4.5" cy="6" r="1.2"></circle>
+        <circle cx="4.5" cy="12" r="1.2"></circle>
+        <circle cx="4.5" cy="18" r="1.2"></circle>
+      </svg>
+      <span>How I work</span>
+    </a>
+    <a href="#experience" data-tab="experience">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5"></circle>
+        <path d="M12 7.5V12l3 2"></path>
+      </svg>
+      <span>Experience</span>
+    </a>
+    <a href="#contact" data-tab="contact">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3.5" y="5.5" width="17" height="13" rx="2.5"></rect>
+        <path d="M4.5 7.5l7.5 5.5 7.5-5.5"></path>
+      </svg>
+      <span>Contact</span>
+    </a>
+  </nav>
+
   <main id="main">
     <section
       class="chapter chapter--hero"

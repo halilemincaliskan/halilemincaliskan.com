@@ -16,6 +16,16 @@ const islandLabel = document.querySelector<HTMLElement>('[data-island-label]');
 const islandLog = document.querySelector<HTMLElement>('[data-island-log]');
 const islandAnnounce = document.querySelector<HTMLElement>('[data-island-announce]');
 const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-stage]'));
+const tabs = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-tab]'));
+/** Which tab a stage belongs to; the hero and stats belong to none. */
+const TAB_OF: Partial<Record<StageId, string>> = {
+  work: 'work',
+  workflow: 'how-i-work',
+  gate: 'how-i-work',
+  defects: 'how-i-work',
+  experience: 'experience',
+  contact: 'contact',
+};
 const gateItems = new Map(
   build.gates.map((gate) => [
     gate.id,
@@ -115,7 +125,7 @@ function expandIsland(): void {
   window.clearTimeout(collapseTimer);
   collapseTimer = window.setTimeout(() => {
     if (!island.matches(':hover, :focus-within')) delete island.dataset.open;
-  }, 3200);
+  }, 2400);
 }
 
 function enterStage(stage: StageId, first: boolean): void {
@@ -125,7 +135,8 @@ function enterStage(stage: StageId, first: boolean): void {
   if (islandLabel) islandLabel.textContent = label;
   if (islandAnnounce) islandAnnounce.textContent = `Stage ${index}: ${label}`;
   typeLog(stage);
-  if (!first) expandIsland();
+  // On narrow screens the expanded island would cover the text being read, so it only opens on tap.
+  if (!first && window.innerWidth > 760) expandIsland();
 }
 
 // ---- Frame ------------------------------------------------------------------------------------
@@ -144,6 +155,10 @@ function update(): void {
   }
   if (island) island.dataset.stage = stage;
   if (stage !== current) {
+    for (const tab of tabs) {
+      if (tab.dataset.tab === TAB_OF[stage]) tab.setAttribute('aria-current', 'true');
+      else tab.removeAttribute('aria-current');
+    }
     enterStage(stage, current === undefined);
     current = stage;
   }
@@ -226,6 +241,7 @@ async function startScene(): Promise<void> {
 
 island?.addEventListener('mouseenter', expandIsland);
 island?.addEventListener('focus', expandIsland);
+island?.addEventListener('click', expandIsland);
 window.addEventListener('scroll', requestUpdate, { passive: true });
 window.addEventListener(
   'resize',
