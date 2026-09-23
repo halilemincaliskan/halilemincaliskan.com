@@ -406,7 +406,7 @@ export class PhoneModel {
     ];
     // Small parts sit on a grid (one per cell, never overlapping) with slightly different heights,
     // so no two top faces share a plane: overlapping coplanar faces z-fight and shimmer.
-    const cell = 0.3;
+    const pitch = 0.3;
     const areas: Array<[number, number, number, number]> = [
       [-0.3, 2.25, 11, 3], // board foot, beside the cameras
       [-3.05, 2.3, 9, 2], // strip under the package shields
@@ -416,13 +416,13 @@ export class PhoneModel {
       for (let row = 0; row < rows; row += 1) {
         for (let column = 0; column < columns; column += 1) {
           if (random() < (lowPower ? 0.7 : 0.4)) continue;
-          const w = 0.08 + random() * (cell - 0.14);
-          const h = 0.06 + random() * (cell - 0.14);
+          const w = 0.08 + random() * (pitch - 0.14);
+          const h = 0.06 + random() * (pitch - 0.14);
           const depth = 0.03 + (part % 5) * 0.009;
           const smd = new Mesh(new BoxGeometry(w, h, depth), smdMaterials[part % 3]);
           smd.position.set(
-            x0 + column * cell + cell / 2,
-            y0 + row * cell + cell / 2,
+            x0 + column * pitch + pitch / 2,
+            y0 + row * pitch + pitch / 2,
             0.045 + depth / 2,
           );
           board.add(smd);
