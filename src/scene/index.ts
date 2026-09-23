@@ -61,7 +61,24 @@ export const createBuildScene: CreateBuildScene = ({ canvas, lowPower }) => {
     antialias: true,
     powerPreference: lowPower ? 'low-power' : 'high-performance',
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.5 : 2));
+  let pixelRatio = Math.min(window.devicePixelRatio, lowPower ? 1.5 : 2);
+  renderer.setPixelRatio(pixelRatio);
+  // Adaptive quality: if continuous frames run slow, step the resolution down (never back up).
+  // Fast machines never trigger it, so they keep the full-quality image.
+  let slowFrames = 0;
+  let lastFrame = 0;
+  const watchFrameTime = (now: number): void => {
+    const dt = lastFrame ? now - lastFrame : 16;
+    lastFrame = now;
+    if (dt > 100) return; // tab switch or first frame after a pause
+    slowFrames = dt > 24 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
+    if (slowFrames > 45 && pixelRatio > 1) {
+      pixelRatio = Math.max(1, pixelRatio - 0.25);
+      renderer.setPixelRatio(pixelRatio);
+      renderer.setSize(width, height, false);
+      slowFrames = 0;
+    }
+  };
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = NeutralToneMapping;
@@ -246,6 +263,7 @@ export const createBuildScene: CreateBuildScene = ({ canvas, lowPower }) => {
     const animated = f.idle || ghost.visible || pulse.visible;
     if (dirty || animated) {
       renderer.render(scene, camera);
+      watchFrameTime(performance.now());
       dirty = false;
     }
     if (animated) raf = window.requestAnimationFrame(render);

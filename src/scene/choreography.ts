@@ -29,8 +29,8 @@ export interface Frame extends Pose {
 const KEYS: Array<[number, Pose]> = [
   [0.0, { rx: -0.3, ry: -0.92, rz: 0.1, explode: 1, x: 0.46, size: 0.8 }],
   [1.0, { rx: -0.26, ry: -0.8, rz: 0.07, explode: 0.94, x: 0.46, size: 0.84 }],
-  [2.0, { rx: -0.2, ry: -0.66, rz: 0.04, explode: 0.9, x: 0.45, size: 0.88 }],
-  [2.62, { rx: 0.06, ry: -0.3, rz: 0, explode: 0, x: 0.44, size: 1 }],
+  [1.25, { rx: -0.22, ry: -0.72, rz: 0.05, explode: 0.93, x: 0.45, size: 0.87 }],
+  [2.0, { rx: 0.06, ry: -0.3, rz: 0, explode: 0, x: 0.44, size: 1 }],
   [3.0, { rx: 0.02, ry: -0.2, rz: 0, explode: 0, x: 0.44, size: 1 }],
   [3.85, { rx: 0, ry: 0.12, rz: 0, explode: 0, x: 0.44, size: 1 }],
   [4.12, { rx: 0, ry: 0, rz: 0, explode: 0, x: 0.72, size: 1 }],
@@ -71,9 +71,11 @@ function samplePose(position: number): Pose {
 }
 
 /**
- * Assembly order during "work": the internals drop into the frame first, then the back glass
- * closes, then the display comes down last. Each layer eases on its own slice of the stage.
+ * Assembly happens while the stats are on screen, so the phone is sealed and booting by the time
+ * the case study arrives. Order: internals drop into the frame, the back closes, the display
+ * comes down last. Each layer eases on its own slice of the assembly window.
  */
+const ASSEMBLE_FROM = 0.25;
 const ASSEMBLY: Record<LayerId, [number, number]> = {
   frame: [0.0, 0.34],
   internals: [0.04, 0.4],
@@ -88,16 +90,17 @@ export function frameFor(stage: StageId, t: number): Frame {
 
   const layers = {} as Record<LayerId, number>;
   for (const id of Object.keys(ASSEMBLY) as LayerId[]) {
-    if (index < 2) layers[id] = pose.explode;
-    else if (index > 2) layers[id] = 0;
+    if (index === 0) layers[id] = pose.explode;
+    else if (index > 1) layers[id] = 0;
     else {
       const [start, end] = ASSEMBLY[id];
-      layers[id] = 0.9 * (1 - smooth((t - start) / (end - start)));
+      const u = (t - ASSEMBLE_FROM) / (1 - ASSEMBLE_FROM);
+      layers[id] = 0.94 * (1 - smooth((u - start) / (end - start)));
     }
   }
 
   const ghost = stage === 'gate' ? smooth((t - 0.06) / 0.1) * (1 - smooth((t - 0.86) / 0.1)) : 0;
-  const pulse = stage === 'work' ? Math.max(0, 1 - Math.abs(t - 0.64) / 0.07) : 0;
+  const pulse = stage === 'work' ? Math.max(0, 1 - Math.abs(t - 0.5) / 0.06) : 0;
   const shadow = 1 - smooth(pose.explode / 0.6);
 
   return {

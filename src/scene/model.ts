@@ -20,6 +20,7 @@ import {
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   arc,
   offsetOutline,
@@ -76,6 +77,47 @@ function seeded(seed: number): () => number {
     value = (value * 16807) % 2147483647;
     return (value - 1) / 2147483646;
   };
+}
+
+/**
+ * Collapses every set of meshes that share a material inside a layer into one mesh.
+ * The layers only ever move as a whole, so this is purely a draw-call saving: ~90 calls → ~30.
+ */
+function mergeByMaterial(group: Group): void {
+  group.updateMatrixWorld(true);
+  const inverse = group.matrixWorld.clone().invert();
+  const buckets = new Map<Material, Mesh[]>();
+  group.traverse((object) => {
+    if (!(object instanceof Mesh) || Array.isArray(object.material)) return;
+    const list = buckets.get(object.material) ?? [];
+    list.push(object);
+    buckets.set(object.material, list);
+  });
+  for (const [material, meshes] of buckets) {
+    if (meshes.length < 2) continue;
+    const parts = meshes.map((mesh) => {
+      const geometry = mesh.geometry
+        .clone()
+        .applyMatrix4(inverse.clone().multiply(mesh.matrixWorld));
+      return geometry.index ? geometry.toNonIndexed() : geometry;
+    });
+    const names = Object.keys(parts[0].attributes).filter((name) =>
+      parts.every((part) => part.hasAttribute(name)),
+    );
+    for (const part of parts) {
+      for (const name of Object.keys(part.attributes)) {
+        if (!names.includes(name)) part.deleteAttribute(name);
+      }
+    }
+    const merged = mergeGeometries(parts);
+    parts.forEach((part) => part.dispose());
+    if (!merged) continue;
+    for (const mesh of meshes) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+    }
+    group.add(new Mesh(merged, material));
+  }
 }
 
 export class PhoneModel {
@@ -432,7 +474,10 @@ export class PhoneModel {
     display.add(screen);
     this.addLayer('display', display, new Vector3(0, 0.8, 4.2));
 
-    for (const layer of this.layers) this.root.add(layer.group);
+    for (const layer of this.layers) {
+      mergeByMaterial(layer.group);
+      this.root.add(layer.group);
+    }
   }
 
   /** Places every layer: 0 = assembled, 1 = fully exploded. */

@@ -277,7 +277,7 @@ const modules: Painter = (ctx, t) => {
   lightScreen(ctx);
   largeTitle(ctx, COPY.work.eyebrow, COPY.work.title, INK.greenInk);
   const count = 17;
-  const compiled = clamp((t - 0.7) / 0.26) * count;
+  const compiled = clamp((t - 0.1) / 0.38) * count;
   rect(ctx, 16, 170, 370, 58, 14, INK.card);
   text(ctx, `${Math.floor(compiled)} / ${count}`, 32, 206, 17, 600, INK.label, { mono: true });
   rect(ctx, 150, 194, 220, 6, 3, INK.fill);
@@ -314,8 +314,7 @@ const modules: Painter = (ctx, t) => {
 };
 
 const work: Painter = (ctx, t) => {
-  if (t < 0.6) alwaysOn(ctx, t);
-  else if (t < 0.7) boot(ctx, (t - 0.6) / 0.1);
+  if (t < 0.08) boot(ctx, t / 0.08);
   else modules(ctx, t);
 };
 
@@ -525,7 +524,9 @@ export class PhoneScreen {
   draw(stage: StageId, t: number): boolean {
     this.stage = stage;
     this.t = clamp(t);
-    const key = `${stage}:${Math.round(this.t * 80)}:${this.fonts}:${this.minute}`;
+    // The lock screen does not change with scroll, so it never re-uploads the texture.
+    const steps = stage === 'hero' || stage === 'stats' ? 0 : 80;
+    const key = `${stage}:${Math.round(this.t * steps)}:${this.fonts}:${this.minute}`;
     if (key === this.lastKey) return false;
     this.lastKey = key;
     const ctx = this.ctx;

@@ -211,7 +211,7 @@ export const build = {
   ],
   // A gate is pending until its failAt/passAt point is reached in scroll order.
   gates: [
-    { id: 'sim', label: 'Simulator', passAt: { stage: 'work', t: 0.6 } },
+    { id: 'sim', label: 'Simulator', passAt: { stage: 'work', t: 0.5 } },
     {
       id: 'device',
       label: 'Device',
