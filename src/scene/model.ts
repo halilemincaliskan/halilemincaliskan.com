@@ -52,11 +52,8 @@ export const DISPLAY = {
   // border is the same thickness all the way round, corners included (HIG: concentric corners).
   radius: BODY.radius - GLASS_INSET - BEZEL,
 };
-// iPhone 18 Pro camera plateau: an aluminium band across the full width of the back, from Apple's
-// product photos. PLATEAU.x/y is the centre of the lens cluster in front-view coordinates (the
-// cluster sits on the left when seen from the back, so x is positive here).
+// iPhone 18 Pro camera plateau height, from the top of the body (Apple's product photos).
 const PLATEAU_HEIGHT = 4.3;
-const PLATEAU = { x: BODY.width / 2 - 0.3 - 1.9, y: BODY.height / 2 - 0.3 - 1.9, size: 3.8 };
 
 export type LayerId = 'back' | 'frame' | 'internals' | 'display';
 
@@ -322,10 +319,8 @@ export class PhoneModel {
       bottomLens,
       new MeshPhysicalMaterial({ color: '#0d0e10', roughness: 0.12, clearcoat: 1 }),
     );
-    const mic = new Mesh(new CircleGeometry(0.04, 16), matteBlack);
-    mic.rotation.y = Math.PI;
-    mic.position.set(farSide, middleLens + 0.2, plateauBack - 0.002);
-    back.add(mic);
+    // Microphone: centred between flash and LiDAR, recessed like them.
+    addRecessed(0.055, middleLens, matteBlack);
 
     // MagSafe on the inside of the back glass, seen when the phone is taken apart.
     const coilTexture = this.coilTexture();
@@ -535,13 +530,14 @@ export class PhoneModel {
       roughness: 0.45,
       metalness: 0.4,
     });
-    for (const [u, v] of lenses) {
-      const module = new Mesh(new RoundedBoxGeometry(1.35, 1.35, 0.42, 2, 0.08), cameraBody);
-      module.position.set(PLATEAU.x - u, PLATEAU.y + v, -0.08);
+    // One camera module behind each lens on the back.
+    for (const [x, y] of lenses) {
+      const module = new Mesh(new RoundedBoxGeometry(1.7, 1.7, 0.42, 2, 0.1), cameraBody);
+      module.position.set(x, y, -0.08);
       internals.add(module);
-      const barrel = new Mesh(new CylinderGeometry(0.5, 0.5, 0.2, round), titaniumDark);
+      const barrel = new Mesh(new CylinderGeometry(0.62, 0.62, 0.2, round), titaniumDark);
       barrel.rotation.x = Math.PI / 2;
-      barrel.position.set(PLATEAU.x - u, PLATEAU.y + v, -0.34);
+      barrel.position.set(x, y, -0.34);
       internals.add(barrel);
     }
 
