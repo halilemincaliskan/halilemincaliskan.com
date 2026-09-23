@@ -255,13 +255,14 @@ export const createBuildScene: CreateBuildScene = ({ canvas, lowPower }) => {
     pulse.scale.setScalar(1 + (1 - f.pulse) * 0.06);
 
     ghost.visible = gate && f.ghost > 0.01;
-    ghostMaterial.opacity = f.ghost * (0.75 + Math.sin(elapsed * 3) * 0.1);
+    // Steady: a breathing scale/opacity made the 1 px outline shimmer instead of reading as an effect.
+    ghostMaterial.opacity = f.ghost * 0.8;
     badge.material.opacity = f.ghost;
     const ghostX = narrow ? -0.4 : x - halfNdc * 2 - 0.08;
     ghost.position.set(ghostX * halfWidth, y * halfHeight, 0);
-    ghost.scale.setScalar(scale * (1 + Math.sin(elapsed * 2) * 0.006));
+    ghost.scale.setScalar(scale);
 
-    const animated = f.idle || ghost.visible || pulse.visible;
+    const animated = f.idle || pulse.visible;
     if (dirty || animated) {
       renderer.render(scene, camera);
       watchFrameTime(performance.now());

@@ -293,8 +293,8 @@ export class PhoneModel {
     // Flash and LiDAR sit slightly recessed: a dark rim around each suggests the dip.
     const farSide = -islandEdge + 0.9;
     const recess = new MeshBasicMaterial({ color: '#1a0c10', transparent: true, opacity: 0.55 });
-    const addRecessed = (radius: number, y: number, material: Material): void => {
-      const rim = new Mesh(new RingGeometry(radius, radius + 0.045, round), recess);
+    const addRecessed = (radius: number, y: number, material: Material, rimWidth = 0.045): void => {
+      const rim = new Mesh(new RingGeometry(radius, radius + rimWidth, round), recess);
       rim.rotation.y = Math.PI;
       rim.position.set(farSide, y, plateauBack - 0.003);
       back.add(rim);
@@ -320,7 +320,7 @@ export class PhoneModel {
       new MeshPhysicalMaterial({ color: '#0d0e10', roughness: 0.12, clearcoat: 1 }),
     );
     // Microphone: centred between flash and LiDAR, recessed like them.
-    addRecessed(0.055, middleLens, matteBlack);
+    addRecessed(0.035, middleLens, new MeshBasicMaterial({ color: '#000000' }), 0.018);
 
     // MagSafe on the inside of the back glass, seen when the phone is taken apart.
     const coilTexture = this.coilTexture();
