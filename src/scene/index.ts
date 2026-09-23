@@ -169,11 +169,12 @@ export const createBuildScene: CreateBuildScene = ({ canvas, lowPower }) => {
     ctx.lineTo(240, 244);
     ctx.lineTo(314, 164);
     ctx.stroke();
+    const sans = '-apple-system, BlinkMacSystemFont, "Geist Variable", sans-serif';
     ctx.fillStyle = '#248a3d';
     ctx.textAlign = 'center';
-    ctx.font = '650 44px "Geist Mono Variable", ui-monospace, monospace';
+    ctx.font = `700 46px ${sans}`;
     ctx.fillText('Simulator', 256, 400);
-    ctx.font = '600 36px "Geist Mono Variable", ui-monospace, monospace';
+    ctx.font = `500 38px ${sans}`;
     ctx.fillText('build passed', 256, 452);
   });
   badge.mesh.position.set(0, 0.6, 0);

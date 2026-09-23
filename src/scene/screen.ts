@@ -6,29 +6,40 @@ import { DISPLAY } from './model';
 const COPY = build.screen;
 const WIDTH = 720;
 const HEIGHT = Math.round((WIDTH * DISPLAY.height) / DISPLAY.width);
-/** iPhone 16 Pro is 402 pt wide; everything below is laid out in points. */
+/** iPhone 16 Pro is 402 × 874 pt; everything below is laid out in points. */
 const PT = WIDTH / 402;
 
-const INK = {
-  background: '#f2f2f7',
-  card: '#ffffff',
+/**
+ * iOS 27 light-mode semantic colours (HIG, September 2026 values). The app screens use these and
+ * nothing else, the way a SwiftUI app would with `.primary`, `.secondary` and the system tints.
+ */
+const IOS = {
+  groupedBackground: '#f2f2f7',
+  cell: '#ffffff',
   label: '#000000',
-  secondary: '#3c3c4399',
-  tertiary: '#3c3c434d',
-  separator: '#c6c6c8',
-  fill: '#78788033',
-  green: '#34c759',
-  greenInk: '#248a3d',
-  red: '#ff3b30',
-  redInk: '#d70015',
-  blue: '#007aff',
-  orange: '#ff9500',
+  secondary: 'rgba(60,60,67,0.6)',
+  tertiary: 'rgba(60,60,67,0.3)',
+  separator: 'rgba(60,60,67,0.29)',
+  fill: 'rgba(120,120,128,0.2)',
+  track: '#e5e5ea',
+  green: 'rgb(52,199,89)',
+  red: 'rgb(255,56,60)',
+  blue: 'rgb(0,136,255)',
+  gray: 'rgb(142,142,147)',
 };
 
-const SANS = '"Geist Variable", system-ui, -apple-system, sans-serif';
-const MONO = '"Geist Mono Variable", ui-monospace, monospace';
+/** SF Pro on Apple devices; Geist everywhere else (Apple's fonts can't be served on the web). */
+const SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist Variable", sans-serif';
+
+/** Standard layout metrics. */
+const MARGIN = 16;
+const CELL = 52;
+const CELL_RADIUS = 26;
+const LIST_WIDTH = 402 - MARGIN * 2;
+const TAB_Y = 790;
 
 type Painter = (ctx: CanvasRenderingContext2D, t: number) => void;
+type Tab = 0 | 1 | 2 | 3;
 
 /** The visitor's own time, the way the iOS lock screen shows it (no AM/PM). */
 function clock(): string {
@@ -45,9 +56,7 @@ function clamp(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function font(ctx: CanvasRenderingContext2D, size: number, weight: number, mono = false): void {
-  ctx.font = `${weight} ${size * PT}px ${mono ? MONO : SANS}`;
-}
+// ---- Drawing primitives (all in points) ------------------------------------------------------
 
 function text(
   ctx: CanvasRenderingContext2D,
@@ -57,14 +66,14 @@ function text(
   size: number,
   weight: number,
   color: string,
-  options: { mono?: boolean; align?: CanvasTextAlign; maxWidth?: number } = {},
+  options: { align?: CanvasTextAlign; maxWidth?: number } = {},
 ): void {
   let fitted = size;
-  font(ctx, fitted, weight, options.mono);
+  ctx.font = `${weight} ${fitted * PT}px ${SANS}`;
   if (options.maxWidth) {
     while (ctx.measureText(value).width > options.maxWidth * PT && fitted > size * 0.6) {
       fitted -= 0.5;
-      font(ctx, fitted, weight, options.mono);
+      ctx.font = `${weight} ${fitted * PT}px ${SANS}`;
     }
   }
   ctx.fillStyle = color;
@@ -101,7 +110,7 @@ function circle(
   ctx.fill();
 }
 
-function stroke(
+function line(
   ctx: CanvasRenderingContext2D,
   color: string,
   width: number,
@@ -118,54 +127,177 @@ function stroke(
   ctx.stroke();
 }
 
-function check(
+function ring(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  size: number,
+  r: number,
+  width: number,
   color: string,
 ): void {
-  stroke(ctx, color, size * 0.14, [
-    [x - size * 0.34, y + size * 0.02],
-    [x - size * 0.1, y + size * 0.26],
-    [x + size * 0.36, y - size * 0.24],
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width * PT;
+  ctx.beginPath();
+  ctx.arc(x * PT, y * PT, r * PT, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/**
+ * A Liquid Glass surface on a light background: translucent white, a hairline edge and a soft
+ * shadow. Controls float on this; content never uses it.
+ */
+function glass(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.12)';
+  ctx.shadowBlur = 18 * PT;
+  ctx.shadowOffsetY = 4 * PT;
+  rect(ctx, x, y, w, h, r, 'rgba(255,255,255,0.82)');
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 0.8 * PT;
+  ctx.beginPath();
+  ctx.roundRect(x * PT, y * PT, w * PT, h * PT, r * PT);
+  ctx.stroke();
+}
+
+// ---- SF Symbols stand-ins --------------------------------------------------------------------
+
+function checkmark(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
+  line(ctx, color, s * 0.13, [
+    [x - s * 0.32, y + s * 0.02],
+    [x - s * 0.1, y + s * 0.24],
+    [x + s * 0.33, y - s * 0.24],
   ]);
 }
 
-function cross(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  color: string,
-): void {
-  const d = size * 0.28;
-  stroke(ctx, color, size * 0.14, [
+function xmark(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
+  const d = s * 0.26;
+  line(ctx, color, s * 0.13, [
     [x - d, y - d],
     [x + d, y + d],
   ]);
-  stroke(ctx, color, size * 0.14, [
+  line(ctx, color, s * 0.13, [
     [x + d, y - d],
     [x - d, y + d],
   ]);
 }
 
-function spinner(
+/** checkmark.circle.fill / xmark.circle.fill */
+function statusIcon(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   r: number,
-  t: number,
-  color: string,
+  state: 'pass' | 'fail' | 'wait',
 ): void {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = r * 0.22 * PT;
-  ctx.lineCap = 'round';
-  const start = t * Math.PI * 8;
-  ctx.beginPath();
-  ctx.arc(x * PT, y * PT, r * PT, start, start + Math.PI * 1.35);
-  ctx.stroke();
+  if (state === 'wait') {
+    ring(ctx, x, y, r - 1, 1.6, IOS.tertiary);
+    return;
+  }
+  circle(ctx, x, y, r, state === 'pass' ? IOS.green : IOS.red);
+  if (state === 'pass') checkmark(ctx, x, y + 0.5, r * 1.15, '#ffffff');
+  else xmark(ctx, x, y, r * 1.15, '#ffffff');
 }
+
+/** UIActivityIndicatorView: eight spokes with trailing opacity. */
+function activity(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number) {
+  const head = Math.floor(t * 64) % 8;
+  const base = ctx.globalAlpha;
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    const age = (head - i + 8) % 8;
+    ctx.globalAlpha = base * (1 - age * 0.1);
+    line(ctx, IOS.gray, r * 0.26, [
+      [x + Math.cos(angle) * r * 0.5, y + Math.sin(angle) * r * 0.5],
+      [x + Math.cos(angle) * r, y + Math.sin(angle) * r],
+    ]);
+  }
+  ctx.globalAlpha = base;
+}
+
+function hammer(ctx: CanvasRenderingContext2D, x: number, y: number, c: string, filled: boolean) {
+  ctx.save();
+  ctx.translate(x * PT, y * PT);
+  ctx.rotate(-Math.PI / 4);
+  ctx.translate(-x * PT, -y * PT);
+  rect(ctx, x - 1.6, y - 3, 3.2, 14, 1.6, c);
+  if (filled) rect(ctx, x - 7, y - 9, 14, 7, 2, c);
+  else {
+    ctx.strokeStyle = c;
+    ctx.lineWidth = 1.7 * PT;
+    ctx.beginPath();
+    ctx.roundRect((x - 7) * PT, (y - 9) * PT, 14 * PT, 7 * PT, 2 * PT);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function listBullet(ctx: CanvasRenderingContext2D, x: number, y: number, c: string) {
+  for (const dy of [-6, 0, 6]) {
+    circle(ctx, x - 7, y + dy, 1.7, c);
+    line(ctx, c, 2, [
+      [x - 2.5, y + dy],
+      [x + 8, y + dy],
+    ]);
+  }
+}
+
+function shield(ctx: CanvasRenderingContext2D, x: number, y: number, c: string, filled: boolean) {
+  ctx.beginPath();
+  ctx.moveTo(x * PT, (y - 10) * PT);
+  ctx.lineTo((x + 8.5) * PT, (y - 6.5) * PT);
+  ctx.quadraticCurveTo((x + 8.5) * PT, (y + 6) * PT, x * PT, (y + 10.5) * PT);
+  ctx.quadraticCurveTo((x - 8.5) * PT, (y + 6) * PT, (x - 8.5) * PT, (y - 6.5) * PT);
+  ctx.closePath();
+  if (filled) {
+    ctx.fillStyle = c;
+    ctx.fill();
+    checkmark(ctx, x, y, 9, '#ffffff');
+  } else {
+    ctx.strokeStyle = c;
+    ctx.lineWidth = 1.7 * PT;
+    ctx.stroke();
+    checkmark(ctx, x, y, 9, c);
+  }
+}
+
+function clockGlyph(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  c: string,
+  filled: boolean,
+) {
+  if (filled) circle(ctx, x, y, 10, c);
+  else ring(ctx, x, y, 9.2, 1.7, c);
+  const hand = filled ? '#ffffff' : c;
+  line(ctx, hand, 1.8, [
+    [x, y - 5.5],
+    [x, y],
+    [x + 4, y + 2.5],
+  ]);
+}
+
+function magnifier(ctx: CanvasRenderingContext2D, x: number, y: number, c: string) {
+  ring(ctx, x - 2, y - 2, 6.5, 2, c);
+  line(ctx, c, 2.4, [
+    [x + 3, y + 3],
+    [x + 8, y + 8],
+  ]);
+}
+
+function ellipsis(ctx: CanvasRenderingContext2D, x: number, y: number, c: string) {
+  for (const dx of [-6, 0, 6]) circle(ctx, x + dx, y, 1.9, c);
+}
+
+// ---- System chrome ---------------------------------------------------------------------------
 
 function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
   text(ctx, clock(), 52, 36, 17, 600, color, { align: 'center' });
@@ -197,37 +329,97 @@ function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
 }
 
 function homeIndicator(ctx: CanvasRenderingContext2D, color: string): void {
-  rect(ctx, 134, 860, 134, 5, 2.5, color);
+  rect(ctx, 134, 862, 134, 5, 2.5, color);
 }
 
-function largeTitle(
+/** Navigation bar with a large title, an iOS 26+ subtitle and a glass "more" button. */
+function navigation(ctx: CanvasRenderingContext2D, title: string, subtitle: string): void {
+  glass(ctx, 342, 58, 44, 44, 22);
+  ellipsis(ctx, 364, 80, IOS.label);
+  text(ctx, title, MARGIN + 4, 142, 34, 700, IOS.label, { maxWidth: 360 });
+  text(ctx, subtitle, MARGIN + 4, 166, 15, 400, IOS.secondary, { maxWidth: 360 });
+}
+
+/** Floating Liquid Glass tab bar with a separate search button, as in iOS 26+. */
+function tabBar(ctx: CanvasRenderingContext2D, selected: Tab): void {
+  const barX = 20;
+  const barW = 296;
+  const h = 62;
+  glass(ctx, barX, TAB_Y, barW, h, h / 2);
+  const slot = barW / 4;
+  rect(
+    ctx,
+    barX + 4 + selected * slot,
+    TAB_Y + 4,
+    slot - 8,
+    h - 8,
+    (h - 8) / 2,
+    'rgba(0,0,0,0.06)',
+  );
+  COPY.tabs.forEach((label, index) => {
+    const cx = barX + slot * index + slot / 2;
+    const on = index === selected;
+    const tint = on ? IOS.blue : IOS.label;
+    const iy = TAB_Y + 24;
+    if (index === 0) hammer(ctx, cx, iy, tint, on);
+    if (index === 1) listBullet(ctx, cx, iy, tint);
+    if (index === 2) shield(ctx, cx, iy, tint, on);
+    if (index === 3) clockGlyph(ctx, cx, iy, tint, on);
+    text(ctx, label, cx, TAB_Y + 50, 10, 600, tint, { align: 'center' });
+  });
+  glass(ctx, 326, TAB_Y, 62, 62, 31);
+  magnifier(ctx, 357, TAB_Y + 31, IOS.label);
+}
+
+/** Inset grouped section: optional header, then white rows with inset separators. */
+function section(
   ctx: CanvasRenderingContext2D,
-  eyebrow: string,
-  title: string,
-  accent: string,
-): void {
-  text(ctx, eyebrow.toUpperCase(), 20, 104, 13, 600, accent, { mono: true });
-  text(ctx, title, 20, 142, 34, 700, INK.label, { maxWidth: 362 });
+  y: number,
+  rows: number,
+  header?: string,
+  rowHeight = CELL,
+): number {
+  let top = y;
+  if (header) {
+    text(ctx, header, MARGIN + 4, y + 16, 15, 600, IOS.secondary);
+    top += 26;
+  }
+  rect(ctx, MARGIN, top, LIST_WIDTH, rows * rowHeight, CELL_RADIUS, IOS.cell);
+  for (let i = 1; i < rows; i += 1) {
+    rect(ctx, 60, top + i * rowHeight, LIST_WIDTH - 44, 0.6, 0, IOS.separator);
+  }
+  return top;
+}
+
+function appScreen(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = IOS.groupedBackground;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+}
+
+function finish(ctx: CanvasRenderingContext2D, tab: Tab): void {
+  tabBar(ctx, tab);
+  statusBar(ctx, IOS.label);
+  homeIndicator(ctx, IOS.label);
 }
 
 // ---- Screens ----------------------------------------------------------------------------------
 
 /** Always-On lock screen: the phone is still in parts, so the display only glows faintly. */
-const alwaysOn: Painter = (ctx) => {
+const lockScreen: Painter = (ctx) => {
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  const glow = ctx.createRadialGradient(
+  const warm = ctx.createRadialGradient(
     WIDTH * 0.3,
-    HEIGHT * 0.78,
+    HEIGHT * 0.8,
     10,
     WIDTH * 0.3,
-    HEIGHT * 0.78,
+    HEIGHT * 0.8,
     WIDTH,
   );
-  glow.addColorStop(0, 'rgba(255,149,0,0.22)');
-  glow.addColorStop(0.5, 'rgba(255,59,48,0.08)');
-  glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow;
+  warm.addColorStop(0, 'rgba(255,141,40,0.24)');
+  warm.addColorStop(0.5, 'rgba(255,56,60,0.08)');
+  warm.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = warm;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   const cool = ctx.createRadialGradient(
     WIDTH * 0.85,
@@ -237,80 +429,102 @@ const alwaysOn: Painter = (ctx) => {
     HEIGHT * 0.2,
     WIDTH * 0.9,
   );
-  cool.addColorStop(0, 'rgba(90,120,255,0.16)');
+  cool.addColorStop(0, 'rgba(97,85,245,0.2)');
   cool.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = cool;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  text(ctx, today(), 201, 132, 19, 600, 'rgba(255,255,255,0.62)', { align: 'center' });
-  text(ctx, clock(), 201, 232, 108, 700, 'rgba(255,255,255,0.72)', {
+  text(ctx, today(), 201, 128, 20, 600, 'rgba(255,255,255,0.66)', { align: 'center' });
+  text(ctx, clock(), 201, 232, 110, 700, 'rgba(255,255,255,0.74)', {
     align: 'center',
     maxWidth: 360,
   });
 
-  rect(ctx, 16, 700, 370, 76, 24, 'rgba(255,255,255,0.14)');
-  rect(ctx, 30, 714, 48, 48, 11, 'rgba(52,199,89,0.85)');
-  text(ctx, '>_', 54, 745, 19, 700, 'rgba(0,0,0,0.75)', { mono: true, align: 'center' });
-  text(ctx, COPY.hero.subtitle, 92, 734, 15, 650, 'rgba(255,255,255,0.8)');
-  text(ctx, 'now', 370, 734, 13, 500, 'rgba(255,255,255,0.45)', { align: 'right' });
-  text(ctx, COPY.hero.title, 92, 756, 15, 500, 'rgba(255,255,255,0.72)');
+  // Notification on clear Liquid Glass: app icon, app name, time, title and body.
+  rect(ctx, 12, 668, 378, 86, 26, 'rgba(255,255,255,0.16)');
+  const icon = ctx.createLinearGradient(0, 684 * PT, 0, 722 * PT);
+  icon.addColorStop(0, '#3a3a3c');
+  icon.addColorStop(1, '#1c1c1e');
+  rect(ctx, 26, 684, 38, 38, 9, '#1c1c1e');
+  ctx.fillStyle = icon;
+  ctx.beginPath();
+  ctx.roundRect(26 * PT, 684 * PT, 38 * PT, 38 * PT, 9 * PT);
+  ctx.fill();
+  line(ctx, IOS.green, 2.6, [
+    [36, 697],
+    [42, 703],
+    [36, 709],
+  ]);
+  line(ctx, IOS.green, 2.6, [
+    [45, 710],
+    [53, 710],
+  ]);
+  text(ctx, COPY.hero.title, 76, 700, 15, 600, 'rgba(255,255,255,0.86)', { maxWidth: 240 });
+  text(ctx, 'now', 374, 700, 13, 400, 'rgba(255,255,255,0.5)', { align: 'right' });
+  text(ctx, COPY.hero.body, 76, 720, 15, 400, 'rgba(255,255,255,0.72)', { maxWidth: 290 });
+
+  // Flashlight and camera quick actions.
+  for (const x of [72, 330]) circle(ctx, x, 790, 25, 'rgba(255,255,255,0.14)');
+  rect(ctx, 68.5, 781, 7, 18, 2.5, 'rgba(255,255,255,0.72)');
+  rect(ctx, 320, 783, 20, 14, 3.5, 'rgba(255,255,255,0.72)');
+  circle(ctx, 330, 790, 3.6, 'rgba(0,0,0,0.6)');
   homeIndicator(ctx, 'rgba(255,255,255,0.5)');
 };
 
-/** Boot sequence between "assembled" and the first app screen. */
+/** Boot sequence between "assembled" and the first app screen: the Apple-style progress. */
 const boot = (ctx: CanvasRenderingContext2D, t: number): void => {
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.globalAlpha = clamp(t * 3);
-  text(ctx, '>_', 201, 420, 64, 700, '#ffffff', { mono: true, align: 'center' });
-  rect(ctx, 141, 470, 120, 4, 2, 'rgba(255,255,255,0.25)');
-  rect(ctx, 141, 470, 120 * clamp(t * 1.2), 4, 2, '#ffffff');
+  rect(ctx, 151, 470, 100, 4, 2, 'rgba(255,255,255,0.25)');
+  rect(ctx, 151, 470, 100 * clamp(t * 1.2), 4, 2, '#ffffff');
   ctx.globalAlpha = 1;
 };
 
-function lightScreen(ctx: CanvasRenderingContext2D): void {
-  ctx.fillStyle = INK.background;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-}
-
 const modules: Painter = (ctx, t) => {
-  lightScreen(ctx);
-  largeTitle(ctx, COPY.work.eyebrow, COPY.work.title, INK.greenInk);
+  const copy = COPY.work;
+  appScreen(ctx);
+  navigation(ctx, copy.title, copy.subtitle);
+
+  const packagesTop = section(ctx, 188, copy.packages.length, copy.packagesHeader);
+  copy.packages.forEach((name, index) => {
+    const y = packagesTop + index * CELL + CELL / 2;
+    const done = t >= 0.12 + index * 0.05;
+    statusIcon(ctx, 38, y, 11, done ? 'pass' : 'wait');
+    text(ctx, name, 60, y + 6, 17, 400, IOS.label);
+  });
+
   const count = 17;
-  const compiled = clamp((t - 0.1) / 0.38) * count;
-  rect(ctx, 16, 170, 370, 58, 14, INK.card);
-  text(ctx, `${Math.floor(compiled)} / ${count}`, 32, 206, 17, 600, INK.label, { mono: true });
-  rect(ctx, 150, 194, 220, 6, 3, INK.fill);
-  rect(ctx, 150, 194, 220 * (compiled / count), 6, 3, INK.green);
+  const compiled = clamp((t - 0.22) / 0.3) * count;
+  const done = compiled >= count;
+  const top = section(ctx, 370, 1, copy.modulesHeader, 92);
+  text(ctx, done ? copy.compiled : copy.compiling, 36, top + 32, 17, 400, IOS.label);
+  text(ctx, `${Math.floor(compiled)} of ${count}`, 366, top + 32, 17, 400, IOS.secondary, {
+    align: 'right',
+  });
+  rect(ctx, 36, top + 54, 330, 4, 2, IOS.track);
+  rect(ctx, 36, top + 54, 330 * (compiled / count), 4, 2, done ? IOS.green : IOS.blue);
+  text(ctx, 'All tests run after every module.', 36, top + 78, 13, 400, IOS.secondary);
+
+  // A module grid, one tile per feature module, like a Shortcuts-style collection.
+  const gridTop = 488;
   for (let i = 0; i < count; i += 1) {
-    const col = i % 4;
-    const row = Math.floor(i / 4);
-    const x = 16 + col * 94;
-    const y = 246 + row * 94;
-    const done = clamp(compiled - i);
-    rect(ctx, x, y, 82, 82, 20, INK.card);
-    if (done > 0) {
-      ctx.globalAlpha = done;
-      rect(ctx, x, y, 82, 82, 20, '#e8f8ec');
-      check(ctx, x + 41, y + 34, 30, INK.green);
-      ctx.globalAlpha = 1;
+    const col = i % 6;
+    const row = Math.floor(i / 6);
+    const x = MARGIN + col * 62;
+    const y = gridTop + row * 62;
+    const on = clamp(compiled - i);
+    rect(ctx, x, y, 54, 54, 14, IOS.cell);
+    if (on > 0) {
+      const base = ctx.globalAlpha;
+      ctx.globalAlpha = base * on;
+      statusIcon(ctx, x + 27, y + 27, 12, 'pass');
+      ctx.globalAlpha = base;
+    } else {
+      text(ctx, String(i + 1), x + 27, y + 33, 15, 500, IOS.tertiary, { align: 'center' });
     }
-    text(
-      ctx,
-      String(i + 1).padStart(2, '0'),
-      x + 41,
-      y + 70,
-      12,
-      600,
-      done > 0.5 ? INK.greenInk : INK.secondary,
-      {
-        mono: true,
-        align: 'center',
-      },
-    );
   }
-  statusBar(ctx, INK.label);
-  homeIndicator(ctx, INK.label);
+  finish(ctx, 0);
 };
 
 const work: Painter = (ctx, t) => {
@@ -319,153 +533,156 @@ const work: Painter = (ctx, t) => {
 };
 
 const workflow: Painter = (ctx, t) => {
-  lightScreen(ctx);
-  largeTitle(ctx, COPY.workflow.eyebrow, COPY.workflow.title, INK.blue);
-  const rows = COPY.workflow.rows;
-  const rowHeight = 58;
-  rect(ctx, 16, 172, 370, rows.length * rowHeight, 14, INK.card);
-  rows.forEach((row, index) => {
-    const y = 172 + index * rowHeight;
-    const phase = t * rows.length - index;
+  const copy = COPY.workflow;
+  appScreen(ctx);
+  navigation(ctx, copy.title, copy.subtitle);
+  const top = section(ctx, 188, copy.rows.length);
+  copy.rows.forEach((row, index) => {
+    const y = top + index * CELL + CELL / 2;
+    const phase = t * copy.rows.length - index;
     const done = phase >= 0.72;
     const running = phase >= 0 && !done;
-    if (index > 0) rect(ctx, 62, y, 324, 0.6, 0, INK.separator);
-    if (done) {
-      circle(ctx, 38, y + 29, 12, INK.green);
-      check(ctx, 38, y + 29, 14, '#ffffff');
-    } else if (running) {
-      spinner(ctx, 38, y + 29, 10, phase, INK.blue);
-    } else {
-      circle(ctx, 38, y + 29, 11, INK.fill);
-    }
-    text(ctx, row, 62, y + 35, 17, 500, running || done ? INK.label : INK.secondary);
-    const state = done
-      ? COPY.workflow.states.pass
-      : running
-        ? COPY.workflow.states.run
-        : COPY.workflow.states.wait;
-    const tone = done ? INK.greenInk : running ? INK.blue : INK.secondary;
-    text(ctx, state, 370, y + 34, 13, 650, tone, { mono: true, align: 'right' });
+    if (done) statusIcon(ctx, 38, y, 11, 'pass');
+    else if (running) activity(ctx, 38, y, 10, phase);
+    else statusIcon(ctx, 38, y, 11, 'wait');
+    text(ctx, row, 60, y + 6, 17, 400, running || done ? IOS.label : IOS.secondary);
+    const state = done ? copy.states.pass : running ? copy.states.run : copy.states.wait;
+    text(ctx, state, 366, y + 6, 17, 400, IOS.secondary, { align: 'right' });
   });
-  statusBar(ctx, INK.label);
-  homeIndicator(ctx, INK.label);
+  const passed = Math.min(copy.rows.length, Math.floor(t * copy.rows.length + 0.28));
+  text(
+    ctx,
+    `${passed} of ${copy.rows.length} steps passed`,
+    MARGIN + 4,
+    top + 6 * CELL + 24,
+    13,
+    400,
+    IOS.secondary,
+  );
+  finish(ctx, 1);
 };
 
 const gate: Painter = (ctx, t) => {
-  lightScreen(ctx);
+  const copy = COPY.gate;
+  appScreen(ctx);
+  navigation(ctx, copy.title, copy.subtitle);
   const failing = t >= 0.3 && t < 0.75;
   const passed = t >= 0.75;
-  const accent = failing ? INK.redInk : passed ? INK.greenInk : INK.blue;
-  const status = failing ? COPY.gate.failed : passed ? COPY.gate.passed : COPY.gate.running;
-  largeTitle(ctx, COPY.gate.eyebrow, status, accent);
 
-  rect(ctx, 16, 172, 370, 250, 22, INK.card);
-  const soft = failing ? '#ffe5e3' : passed ? '#e3f7e8' : '#e5f0ff';
-  circle(ctx, 201, 272, 62, soft);
-  if (failing) {
-    circle(ctx, 201, 272, 42, INK.red);
-    cross(ctx, 201, 272, 44, '#ffffff');
-  } else if (passed) {
-    circle(ctx, 201, 272, 42, INK.green);
-    check(ctx, 201, 274, 44, '#ffffff');
-  } else {
-    spinner(ctx, 201, 272, 34, t, INK.blue);
-  }
-  text(ctx, 'generic/platform=iOS', 201, 382, 13, 550, INK.secondary, {
-    mono: true,
-    align: 'center',
-  });
+  // Hero status card.
+  rect(ctx, MARGIN, 188, LIST_WIDTH, 196, CELL_RADIUS, IOS.cell);
+  if (failing) statusIcon(ctx, 201, 258, 34, 'fail');
+  else if (passed) statusIcon(ctx, 201, 258, 34, 'pass');
+  else activity(ctx, 201, 258, 22, t);
+  const status = failing ? copy.failed : passed ? copy.passed : copy.running;
+  text(ctx, status, 201, 330, 22, 700, IOS.label, { align: 'center', maxWidth: 330 });
+  text(ctx, copy.subtitle, 201, 356, 15, 400, IOS.secondary, { align: 'center' });
 
-  if (failing) {
-    rect(ctx, 16, 440, 370, 118, 16, INK.card);
-    circle(ctx, 40, 470, 10, INK.red);
-    cross(ctx, 40, 470, 12, '#ffffff');
-    text(ctx, COPY.gate.errorTitle, 60, 476, 16, 650, INK.redInk);
-    text(ctx, COPY.gate.errorBody, 32, 510, 15, 500, INK.label, { maxWidth: 338 });
-    text(ctx, COPY.gate.errorHint, 32, 536, 14, 500, INK.secondary, { maxWidth: 338 });
-  }
-  statusBar(ctx, INK.label);
-  homeIndicator(ctx, INK.label);
-};
-
-const defects: Painter = (ctx, t) => {
-  lightScreen(ctx);
-  largeTitle(ctx, COPY.defects.eyebrow, COPY.defects.title, INK.greenInk);
-  const items = COPY.defects.items;
-  const rowHeight = 62;
-  rect(ctx, 16, 172, 370, items.length * rowHeight, 14, INK.card);
-  items.forEach((item, index) => {
-    const y = 172 + index * rowHeight;
-    const fixed = t >= (index + 1) * 0.2;
-    if (index > 0) rect(ctx, 62, y, 324, 0.6, 0, INK.separator);
-    circle(ctx, 38, y + 31, 12, fixed ? INK.green : INK.red);
-    if (fixed) check(ctx, 38, y + 31, 14, '#ffffff');
-    else cross(ctx, 38, y + 31, 13, '#ffffff');
-    text(ctx, item, 62, y + 37, 17, 500, INK.label, { maxWidth: 230 });
-    text(ctx, fixed ? 'FIXED' : 'OPEN', 370, y + 36, 12, 650, fixed ? INK.greenInk : INK.redInk, {
-      mono: true,
+  // The two builds side by side, as rows.
+  const top = section(ctx, 404, 2);
+  const rows: Array<[string, 'pass' | 'fail' | 'wait' | 'run', string]> = [
+    [copy.simulator, 'pass', 'Passed'],
+    [
+      copy.device,
+      failing ? 'fail' : passed ? 'pass' : 'run',
+      failing ? 'Failed' : passed ? 'Passed' : 'Running',
+    ],
+  ];
+  rows.forEach(([label, state, value], index) => {
+    const y = top + index * CELL + CELL / 2;
+    if (state === 'run') activity(ctx, 38, y, 10, t);
+    else statusIcon(ctx, 38, y, 11, state);
+    text(ctx, label, 60, y + 6, 17, 400, IOS.label);
+    text(ctx, value, 366, y + 6, 17, 400, state === 'fail' ? IOS.red : IOS.secondary, {
       align: 'right',
     });
   });
-  statusBar(ctx, INK.label);
-  homeIndicator(ctx, INK.label);
+
+  if (failing) {
+    const errorTop = section(ctx, 524, 1, copy.errorTitle, 76);
+    text(ctx, copy.errorBody, 36, errorTop + 32, 17, 400, IOS.label, { maxWidth: 330 });
+    text(ctx, copy.errorHint, 36, errorTop + 56, 15, 400, IOS.secondary, { maxWidth: 330 });
+  }
+  finish(ctx, 2);
+};
+
+const defects: Painter = (ctx, t) => {
+  const copy = COPY.defects;
+  appScreen(ctx);
+  navigation(ctx, copy.title, copy.subtitle);
+  const top = section(ctx, 188, copy.items.length);
+  copy.items.forEach((item, index) => {
+    const y = top + index * CELL + CELL / 2;
+    const fixed = t >= (index + 1) * 0.2;
+    statusIcon(ctx, 38, y, 11, fixed ? 'pass' : 'fail');
+    text(ctx, item, 60, y + 6, 17, 400, IOS.label, { maxWidth: 220 });
+    text(
+      ctx,
+      fixed ? copy.states.fixed : copy.states.open,
+      366,
+      y + 6,
+      17,
+      400,
+      fixed ? IOS.secondary : IOS.red,
+      {
+        align: 'right',
+      },
+    );
+  });
+  finish(ctx, 2);
 };
 
 const experience: Painter = (ctx, t) => {
-  lightScreen(ctx);
-  largeTitle(ctx, COPY.experience.eyebrow, COPY.experience.title, INK.blue);
-  // Newest on top, like the CV. The timeline fills from the oldest job at the bottom upwards,
-  // and only the current job is green.
+  const copy = COPY.experience;
+  appScreen(ctx);
+  navigation(ctx, copy.title, copy.subtitle);
+  // Newest on top, like the CV; rows light up from the oldest job at the bottom.
+  const rowHeight = 64;
   const count = jobs.length;
-  const rowGap = 96;
-  rect(ctx, 44, 206, 2, (count - 1) * rowGap, 1, INK.separator);
+  const top = section(ctx, 188, count, undefined, rowHeight);
+  const base = ctx.globalAlpha;
   jobs.forEach((job, index) => {
-    const y = 206 + index * rowGap;
+    const y = top + index * rowHeight;
     const active = t >= ((count - 1 - index) / count) * 0.36;
     const current = index === 0;
-    const dot = active ? (current ? INK.green : INK.label) : INK.separator;
-    circle(ctx, 45, y, active && current ? 9 : 6, dot);
-    rect(ctx, 70, y - 36, 316, 72, 16, INK.card);
+    ctx.globalAlpha = base * (active ? 1 : 0.35);
+    circle(ctx, 38, y + rowHeight / 2, 5, current ? IOS.green : IOS.gray);
+    text(ctx, job.company, 60, y + 28, 17, 600, IOS.label, { maxWidth: 210 });
+    text(ctx, job.role, 60, y + 49, 15, 400, IOS.secondary, { maxWidth: 230 });
     const year = job.period.match(/\d{4}/)?.[0] ?? '';
-    const tone = active ? INK.label : INK.secondary;
-    text(ctx, year, 88, y - 4, 20, 650, current && active ? INK.greenInk : tone, { mono: true });
-    text(ctx, job.company, 150, y - 4, 19, 650, tone, { maxWidth: 150 });
     if (current) {
-      text(ctx, 'NOW', 368, y - 4, 12, 650, active ? INK.greenInk : INK.secondary, {
-        mono: true,
-        align: 'right',
-      });
+      rect(ctx, 312, y + 20, 54, 24, 12, 'rgba(52,199,89,0.16)');
+      text(ctx, copy.now, 339, y + 37, 13, 600, 'rgb(36,138,61)', { align: 'center' });
+    } else {
+      text(ctx, year, 366, y + 38, 17, 400, IOS.secondary, { align: 'right' });
     }
-    text(ctx, job.role, 88, y + 22, 14, 500, INK.secondary, { maxWidth: 280 });
+    ctx.globalAlpha = base;
   });
-  statusBar(ctx, INK.label);
-  homeIndicator(ctx, INK.label);
+  finish(ctx, 3);
 };
 
 const contact: Painter = (ctx, t) => {
-  lightScreen(ctx);
+  const copy = COPY.contact;
+  appScreen(ctx);
   const grow = 0.9 + clamp(t / 0.4) * 0.1;
   ctx.save();
   ctx.translate(201 * PT, 330 * PT);
   ctx.scale(grow, grow);
   ctx.translate(-201 * PT, -330 * PT);
-  circle(ctx, 201, 330, 84, '#e3f7e8');
-  circle(ctx, 201, 330, 60, INK.green);
-  check(ctx, 201, 333, 64, '#ffffff');
+  statusIcon(ctx, 201, 330, 48, 'pass');
   ctx.restore();
-  text(ctx, `${COPY.contact.top} ${COPY.contact.bottom}`, 201, 480, 26, 700, INK.greenInk, {
-    mono: true,
-    align: 'center',
-    maxWidth: 360,
-  });
-  text(ctx, COPY.contact.subtitle, 201, 516, 17, 500, INK.secondary, { align: 'center' });
-  statusBar(ctx, INK.label);
-  homeIndicator(ctx, INK.label);
+  text(ctx, copy.title, 201, 430, 28, 700, IOS.label, { align: 'center', maxWidth: 360 });
+  text(ctx, copy.subtitle, 201, 460, 17, 400, IOS.secondary, { align: 'center' });
+  // Prominent button: the accent colour goes on the background, not on the label.
+  rect(ctx, 36, 700, 330, 52, 26, IOS.blue);
+  text(ctx, copy.action, 201, 732, 17, 600, '#ffffff', { align: 'center' });
+  statusBar(ctx, IOS.label);
+  homeIndicator(ctx, IOS.label);
 };
 
 const painters: Record<StageId, Painter> = {
-  hero: alwaysOn,
-  stats: alwaysOn,
+  hero: lockScreen,
+  stats: lockScreen,
   work,
   workflow,
   gate,
@@ -532,12 +749,16 @@ export class PhoneScreen {
     const ctx = this.ctx;
     ctx.save();
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
-    painters[stage](ctx, this.t);
+    // Fade through the background instead of blending two screens, so two titles never overlap.
+    // Only the content area fades; the status bar and tab bar stay put, as they do on iOS.
     const from = previous[stage];
-    const fade = clamp(this.t / 0.12);
+    const fade = clamp(this.t / 0.1);
+    const outgoing = from !== undefined && fade < 0.5;
+    painters[outgoing ? from : stage](ctx, outgoing ? 1 : this.t);
     if (from && fade < 1) {
-      ctx.globalAlpha = 1 - fade;
-      painters[from](ctx, 1);
+      ctx.globalAlpha = outgoing ? fade * 2 : (1 - fade) * 2;
+      rect(ctx, 0, 50, 402, TAB_Y - 56, 0, IOS.groupedBackground);
+      ctx.globalAlpha = 1;
     }
     ctx.restore();
     // The Dynamic Island is hardware, so it is painted over every screen.
