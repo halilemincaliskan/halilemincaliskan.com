@@ -329,6 +329,17 @@ const parts = (value: string) =>
           {number('contact')} · {stage('contact').label}
         </p>
         <h2 id="contact-title" class="success reveal">
+          <svg class="success__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="12" fill="#34c759"></circle>
+            <path
+              d="M7 12.4l3.3 3.3L17.2 8.6"
+              fill="none"
+              stroke="#fff"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg>
           {build.successLabel}
         </h2>
         <p class="body reveal">{profile.availability}</p>

@@ -222,7 +222,7 @@ export const build = {
     { id: 'lint', label: 'Lint', passAt: { stage: 'defects', t: 0.8 } },
   ],
   scrollHint: 'Scroll to run the build',
-  successLabel: 'BUILD SUCCEEDED',
+  successLabel: 'Build succeeded.',
   // Drawn on the 3D phone screen as iOS 27 screens; keep it short.
   screen: {
     app: 'Verify',
