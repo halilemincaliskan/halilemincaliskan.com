@@ -1,0 +1,31 @@
+---
+import Base from '../layouts/Base.astro';
+import { notFound, profile } from '../data/site';
+---
+
+<Base title={`${notFound.title} · ${profile.name}`}>
+  <main id="main" class="lost">
+    <p class="kicker">404 · Build target not found</p>
+    <h1 class="headline">{notFound.title}</h1>
+    <p class="body">{notFound.body}</p>
+    <p class="actions">
+      <a class="button" href="/">
+        {notFound.home}
+      </a>
+    </p>
+  </main>
+</Base>
+
+<style>
+  .lost {
+    min-height: 100vh;
+    display: grid;
+    place-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .lost .actions {
+    justify-content: center;
+  }
+</style>

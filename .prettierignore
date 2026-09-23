@@ -1,0 +1,6 @@
+dist
+node_modules
+.astro
+package-lock.json
+CLAUDE.md
+AGENTS.md
