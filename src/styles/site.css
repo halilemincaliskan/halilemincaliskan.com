@@ -361,8 +361,8 @@ main {
 .chapter {
   min-height: 110vh;
   display: flex;
-  align-items: center;
-  padding: calc(var(--bar) + 12vh) var(--gutter) 12vh;
+  align-items: flex-start;
+  padding: calc(var(--bar) + 56px) var(--gutter) 12vh;
 }
 
 .chapter--long {
@@ -371,6 +371,7 @@ main {
 
 .chapter--hero {
   min-height: 100vh;
+  align-items: center;
   padding-top: calc(var(--bar) + 8vh);
 }
 
@@ -711,7 +712,12 @@ main {
   width: 9px;
   height: 9px;
   border-radius: 50%;
+  background: var(--ink);
+}
+
+.timeline > li:first-child::before {
   background: var(--pass-dot);
+  box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.18);
 }
 
 .timeline > li::after {

@@ -250,7 +250,6 @@ export const build = {
     experience: {
       eyebrow: 'Experience',
       title: '2022 → now',
-      years: ['2022', '2023', '2024', '2024'],
     },
     contact: { top: 'BUILD', bottom: 'SUCCEEDED', subtitle: 'Ready to ship' },
   },

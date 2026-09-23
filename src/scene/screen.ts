@@ -1,5 +1,5 @@
 import { CanvasTexture, LinearMipmapLinearFilter, SRGBColorSpace } from 'three';
-import { build } from '../data/site';
+import { build, experience as jobs } from '../data/site';
 import type { StageId } from './contract';
 import { DISPLAY } from './model';
 
@@ -29,6 +29,17 @@ const SANS = '"Geist Variable", system-ui, -apple-system, sans-serif';
 const MONO = '"Geist Mono Variable", ui-monospace, monospace';
 
 type Painter = (ctx: CanvasRenderingContext2D, t: number) => void;
+
+/** The visitor's own time, the way the iOS lock screen shows it (no AM/PM). */
+function clock(): string {
+  return new Date()
+    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    .replace(/\s?[APap]\.?[Mm]\.?$/, '');
+}
+
+function today(): string {
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
 
 function clamp(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -157,7 +168,7 @@ function spinner(
 }
 
 function statusBar(ctx: CanvasRenderingContext2D, color: string): void {
-  text(ctx, '9:41', 52, 36, 17, 600, color, { align: 'center' });
+  text(ctx, clock(), 52, 36, 17, 600, color, { align: 'center' });
   ctx.fillStyle = color;
   [4, 6.5, 9, 11.5].forEach((h, i) => {
     ctx.beginPath();
@@ -231,13 +242,16 @@ const alwaysOn: Painter = (ctx) => {
   ctx.fillStyle = cool;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  text(ctx, COPY.hero.subtitle, 201, 132, 19, 600, 'rgba(255,255,255,0.62)', { align: 'center' });
-  text(ctx, '9:41', 201, 232, 108, 700, 'rgba(255,255,255,0.72)', { align: 'center' });
+  text(ctx, today(), 201, 132, 19, 600, 'rgba(255,255,255,0.62)', { align: 'center' });
+  text(ctx, clock(), 201, 232, 108, 700, 'rgba(255,255,255,0.72)', {
+    align: 'center',
+    maxWidth: 360,
+  });
 
   rect(ctx, 16, 700, 370, 76, 24, 'rgba(255,255,255,0.14)');
   rect(ctx, 30, 714, 48, 48, 11, 'rgba(52,199,89,0.85)');
   text(ctx, '>_', 54, 745, 19, 700, 'rgba(0,0,0,0.75)', { mono: true, align: 'center' });
-  text(ctx, 'verify.sh', 92, 734, 15, 650, 'rgba(255,255,255,0.8)');
+  text(ctx, COPY.hero.subtitle, 92, 734, 15, 650, 'rgba(255,255,255,0.8)');
   text(ctx, 'now', 370, 734, 13, 500, 'rgba(255,255,255,0.45)', { align: 'right' });
   text(ctx, COPY.hero.title, 92, 756, 15, 500, 'rgba(255,255,255,0.72)');
   homeIndicator(ctx, 'rgba(255,255,255,0.5)');
@@ -401,20 +415,29 @@ const defects: Painter = (ctx, t) => {
 const experience: Painter = (ctx, t) => {
   lightScreen(ctx);
   largeTitle(ctx, COPY.experience.eyebrow, COPY.experience.title, INK.blue);
-  const years = COPY.experience.years;
-  rect(ctx, 44, 196, 2, (years.length - 1) * 96, 1, INK.separator);
-  years.forEach((year, index) => {
-    const y = 196 + index * 96;
-    const active = t >= index / years.length;
-    circle(
-      ctx,
-      45,
-      y,
-      active ? 9 : 6,
-      active ? (index === years.length - 1 ? INK.orange : INK.green) : INK.separator,
-    );
-    rect(ctx, 70, y - 30, 316, 60, 14, INK.card);
-    text(ctx, year, 88, y + 8, 22, 650, active ? INK.label : INK.secondary, { mono: true });
+  // Newest on top, like the CV. The timeline fills from the oldest job at the bottom upwards,
+  // and only the current job is green.
+  const count = jobs.length;
+  const rowGap = 96;
+  rect(ctx, 44, 206, 2, (count - 1) * rowGap, 1, INK.separator);
+  jobs.forEach((job, index) => {
+    const y = 206 + index * rowGap;
+    const active = t >= ((count - 1 - index) / count) * 0.36;
+    const current = index === 0;
+    const dot = active ? (current ? INK.green : INK.label) : INK.separator;
+    circle(ctx, 45, y, active && current ? 9 : 6, dot);
+    rect(ctx, 70, y - 36, 316, 72, 16, INK.card);
+    const year = job.period.match(/\d{4}/)?.[0] ?? '';
+    const tone = active ? INK.label : INK.secondary;
+    text(ctx, year, 88, y - 4, 20, 650, current && active ? INK.greenInk : tone, { mono: true });
+    text(ctx, job.company, 150, y - 4, 19, 650, tone, { maxWidth: 150 });
+    if (current) {
+      text(ctx, 'NOW', 368, y - 4, 12, 650, active ? INK.greenInk : INK.secondary, {
+        mono: true,
+        align: 'right',
+      });
+    }
+    text(ctx, job.role, 88, y + 22, 14, 500, INK.secondary, { maxWidth: 280 });
   });
   statusBar(ctx, INK.label);
   homeIndicator(ctx, INK.label);
@@ -468,7 +491,10 @@ export class PhoneScreen {
   private stage: StageId = 'hero';
   private t = 0;
 
-  constructor(onFontsReady: () => void) {
+  private minute = clock();
+  private readonly ticker: number;
+
+  constructor(onChange: () => void) {
     const canvas = document.createElement('canvas');
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
@@ -483,15 +509,23 @@ export class PhoneScreen {
     void document.fonts?.ready.then(() => {
       this.fonts += 1;
       this.draw(this.stage, this.t);
-      onFontsReady();
+      onChange();
     });
+    // Keep the clock honest: repaint when the minute turns over.
+    this.ticker = window.setInterval(() => {
+      if (clock() === this.minute) return;
+      this.minute = clock();
+      this.lastKey = '';
+      this.draw(this.stage, this.t);
+      onChange();
+    }, 10_000);
   }
 
   /** Repaints when the visible frame changes. Returns true if the texture changed. */
   draw(stage: StageId, t: number): boolean {
     this.stage = stage;
     this.t = clamp(t);
-    const key = `${stage}:${Math.round(this.t * 80)}:${this.fonts}`;
+    const key = `${stage}:${Math.round(this.t * 80)}:${this.fonts}:${this.minute}`;
     if (key === this.lastKey) return false;
     this.lastKey = key;
     const ctx = this.ctx;
@@ -515,6 +549,7 @@ export class PhoneScreen {
   }
 
   dispose(): void {
+    window.clearInterval(this.ticker);
     this.texture.dispose();
   }
 }

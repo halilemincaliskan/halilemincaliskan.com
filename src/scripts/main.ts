@@ -202,7 +202,7 @@ function countUp(): void {
 
 function smoothScroll(): void {
   if (coarse || reducedMotion) return;
-  const lenis = new Lenis({ lerp: 0.11, anchors: { offset: -64 } });
+  const lenis = new Lenis({ lerp: 0.11, anchors: true });
   const raf = (time: number): void => {
     lenis.raf(time);
     requestAnimationFrame(raf);
